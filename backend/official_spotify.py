@@ -2,8 +2,8 @@
 from typing import List
 import spotipy
 from spotipy.oauth2 import SpotifyClientCredentials
-from backend.config import settings
-from backend.models import NewRelease
+from config import settings
+from models import NewRelease
 from datetime import datetime
 
 class SpotifyOfficial:

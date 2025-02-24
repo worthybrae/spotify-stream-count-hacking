@@ -2,7 +2,7 @@
 import asyncpg
 from contextlib import asynccontextmanager
 from datetime import datetime
-from backend.config import settings
+from config import settings
 
 @asynccontextmanager
 async def get_db():

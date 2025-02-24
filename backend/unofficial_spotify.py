@@ -4,8 +4,8 @@ import httpx
 import json
 from urllib.parse import quote
 from fastapi import HTTPException
-from backend.unofficial_token_manager import TokenManager
-from backend.models import AlbumResponse, Track
+from unofficial_token_manager import TokenManager
+from models import AlbumResponse, Track
 
 class SpotifyPartner:
     def __init__(self, token_manager: TokenManager):

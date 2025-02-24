@@ -3,11 +3,11 @@ from fastapi import FastAPI, HTTPException, Depends, Query
 from fastapi.security.api_key import APIKeyHeader
 from fastapi.middleware.cors import CORSMiddleware
 from typing import List, Optional
-from backend.unofficial_spotify import SpotifyPartner, TokenManager
-from backend.official_spotify import SpotifyOfficial
-from backend.models import AlbumResponse, Track, StreamCount
-from backend.config import settings
-from backend.db import get_track_history, get_db
+from unofficial_spotify import SpotifyPartner, TokenManager
+from official_spotify import SpotifyOfficial
+from models import AlbumResponse, Track, StreamCount
+from config import settings
+from db import get_track_history, get_db
 from typing import List
 from models import NewRelease, AlbumSaveRequest
 
