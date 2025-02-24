@@ -30,6 +30,11 @@ jobs:
           echo "SPOTIFY_CLIENT_ID=${{ secrets.SPOTIFY_CLIENT_ID }}" >> .env
           echo "SPOTIFY_CLIENT_SECRET=${{ secrets.SPOTIFY_CLIENT_SECRET }}" >> .env
 
+      - name: Setup CockroachDB Certificate
+        run: |
+          mkdir -p $HOME/.postgresql/
+          echo "${{ secrets.COCKROACH_CA_CERT }}" > $HOME/.postgresql/root.crt
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
