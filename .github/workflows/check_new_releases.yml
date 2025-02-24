@@ -8,6 +8,8 @@ on:
 jobs:
   check-releases:
     runs-on: ubuntu-latest
+    environment: prod # Specify the prod environment
+
     steps:
       - uses: actions/checkout@v2
 
@@ -27,7 +29,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          pip install -e ".[dev]"
 
       - name: Run new releases check
         run: python scripts/check_new_releases.py
