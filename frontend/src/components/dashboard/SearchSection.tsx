@@ -35,7 +35,7 @@ export function SearchSection({
   
   // Search functionality (unchanged)
   useEffect(() => {
-    let searchTimer: NodeJS.Timeout;
+    let searchTimer: ReturnType<typeof setTimeout>;
 
     const performSearch = async () => {
       if (searchValue.trim() === lastSearched) return;

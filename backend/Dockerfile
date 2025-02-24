@@ -5,8 +5,13 @@ WORKDIR /app
 # Install system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
+    curl \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
+
+# Create directory for PostgreSQL certificates and download the CockroachDB certificate
+RUN mkdir -p /root/.postgresql
+RUN curl -o /root/.postgresql/root.crt 'https://cockroachlabs.cloud/clusters/d1a2b2c7-9efd-4c03-a694-4afffbfe0993/cert'
 
 # Copy requirements file
 COPY requirements.txt ./
