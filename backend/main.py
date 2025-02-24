@@ -7,7 +7,7 @@ from backend.unofficial_spotify import SpotifyPartner, TokenManager
 from backend.official_spotify import SpotifyOfficial
 from backend.models import AlbumResponse, Track, StreamCount
 from backend.config import settings
-from backend.db import get_track_history
+from backend.db import get_track_history, get_db
 from typing import List
 from models import NewRelease
 
@@ -16,9 +16,9 @@ app = FastAPI(title="Spotify Analytics API")
 # CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Update this with your frontend URL in production
+    allow_origins=["http://localhost:5173", "*"],  # Update this with your frontend URL in production
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
 
@@ -80,6 +80,25 @@ async def get_new_releases(
         return await spotify_official.get_new_releases(limit)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+    
+@app.get("/search/albums")
+async def search_albums(
+    query: str = Query(..., min_length=1),
+    limit: int = Query(default=10, le=50),
+    _: str = Depends(verify_api_key)
+):
+    """Search albums by name"""
+    async with get_db() as conn:
+        results = await conn.fetch("""
+            SELECT a.album_id, a.name as album_name, 
+                   ar.name as artist_name, a.cover_art, a.release_date
+            FROM albums a
+            JOIN artists ar ON a.artist_id = ar.artist_id
+            WHERE a.name ILIKE $1
+            LIMIT $2
+        """, f"%{query}%", limit)
+        
+        return [dict(r) for r in results]
 
 if __name__ == "__main__":
     import uvicorn

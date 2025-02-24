@@ -2,7 +2,7 @@ name: Check New Releases
 
 on:
   schedule:
-    - cron: "1 * * * *" # Run at minute 1 of every hour
+    - cron: "0 17 * * *" # Run at minute 1 of every hour
   workflow_dispatch: # Allow manual triggers
 
 jobs:
