@@ -9,7 +9,7 @@ from backend.models import AlbumResponse, Track, StreamCount
 from backend.config import settings
 from backend.db import get_track_history, get_db
 from typing import List
-from models import NewRelease
+from models import NewRelease, AlbumSaveRequest
 
 app = FastAPI(title="Spotify Analytics API")
 
@@ -99,6 +99,85 @@ async def search_albums(
         """, f"%{query}%", limit)
         
         return [dict(r) for r in results]
+    
+@app.get("/search/spotify-albums", response_model=List[NewRelease])
+async def search_spotify_albums(
+    query: str = Query(..., min_length=1, description="Album search query"),
+    limit: int = Query(default=20, le=50, description="Maximum number of results"),
+    _: str = Depends(verify_api_key)
+):
+    """Search for albums on Spotify by name"""
+    try:
+        return await spotify_official.search_albums(query, limit)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    
+@app.post("/save-album-data", status_code=201)
+async def save_album_data(
+    data: AlbumSaveRequest,
+    _: str = Depends(verify_api_key)
+):
+    """Save complete album data with batch inserts"""
+    try:
+        async with get_db() as conn:
+            async with conn.transaction():
+                # 1. Insert the artist with the provided artist_id
+                await conn.execute("""
+                    INSERT INTO artists (artist_id, name)
+                    VALUES ($1, $2)
+                    ON CONFLICT (artist_id) DO UPDATE 
+                    SET name = $2
+                """, data.album.artist_id, data.album.artist_name)
+                
+                # 2. Save album with the provided artist_id
+                await conn.execute("""
+                    INSERT INTO albums (album_id, artist_id, name, cover_art, release_date)
+                    VALUES ($1, $2, $3, $4, $5)
+                    ON CONFLICT (album_id) DO UPDATE 
+                    SET artist_id = $2, name = $3, cover_art = $4, release_date = $5
+                """, data.album.album_id, data.album.artist_id, data.album.album_name, 
+                   data.album.cover_art, data.album.release_date)
+                
+                # 3. Batch insert all tracks and streams
+                if data.tracks:
+                    # Prepare values for all tracks in one batch
+                    track_values = [(
+                        track.track_id,
+                        track.name,
+                        data.album.album_id,
+                        data.album.artist_id  # Use the artist_id from the album object
+                    ) for track in data.tracks]
+                    
+                    # Execute batch insert
+                    await conn.executemany("""
+                        INSERT INTO tracks (track_id, name, album_id, artist_id)
+                        VALUES ($1, $2, $3, $4)
+                        ON CONFLICT (track_id) DO UPDATE
+                        SET name = $2, album_id = $3, artist_id = $4
+                    """, track_values)
+
+                    stream_values = [(
+                        track.track_id,
+                        track.playcount
+                    ) for track in data.tracks]
+
+                    await conn.executemany("""
+                        INSERT INTO streams (track_id, play_count)
+                        VALUES ($1, $2)
+                    """, stream_values)
+        
+        return {
+            "status": "success", 
+            "message": "Album data saved successfully",
+            "artist_id": data.album.artist_id,
+            "album_id": data.album.album_id,
+            "track_count": len(data.tracks),
+            "stream_count": len(data.streamHistory)
+        }
+    
+    except Exception as e:
+        print(f"Error saving album data: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
     import uvicorn

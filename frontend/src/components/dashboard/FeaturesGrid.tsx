@@ -1,0 +1,58 @@
+// components/dashboard/FeaturesGrid.tsx
+import { Card } from '@/components/ui/card';
+import { TrendingUp, BarChart3, Database, Clock } from 'lucide-react';
+
+export const featuresData = [
+  {
+    icon: <TrendingUp className="h-5 w-5 text-blue-400" />,
+    title: "Revenue Tracking",
+    description: "Real-time Spotify revenue analytics"
+  },
+  {
+    icon: <BarChart3 className="h-5 w-5 text-purple-400" />,
+    title: "Daily Updates",
+    description: "Fresh streaming data every 24 hours"
+  },
+  {
+    icon: <Database className="h-5 w-5 text-pink-400" />,
+    title: "Direct Integration",
+    description: "Connected to Spotify's platform"
+  },
+  {
+    icon: <Clock className="h-5 w-5 text-green-400" />,
+    title: "Historical Data",
+    description: "Complete streaming history"
+  }
+] as const;
+
+interface FeaturesGridProps {
+  isVisible: boolean;
+}
+
+export function FeaturesGrid({ isVisible }: FeaturesGridProps) {
+  return (
+    <div className={`
+      grid grid-cols-2 gap-3 absolute w-full
+      transition-all duration-500 transform
+      ${isVisible ? 'opacity-100 scale-100' : 'opacity-0 scale-95 -translate-y-4 pointer-events-none'}
+    `}>
+      {featuresData.map((feature, index) => (
+        <Card 
+          key={index}
+          className="bg-white/5 hover:bg-white/10 border-white/5 p-4 
+                   transition-all duration-300 transform hover:scale-102"
+        >
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-white/5">
+              {feature.icon}
+            </div>
+            <div>
+              <h3 className="font-medium text-sm text-white">{feature.title}</h3>
+              <p className="text-xs text-white/60">{feature.description}</p>
+            </div>
+          </div>
+        </Card>
+      ))}
+    </div>
+  );
+}
