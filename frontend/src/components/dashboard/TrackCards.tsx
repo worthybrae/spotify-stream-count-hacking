@@ -2,14 +2,15 @@ import React from 'react';
 import { Track, StreamCount } from '@/types/api';
 import { LineChart, Line } from 'recharts';
 import { Flame, Play, DollarSign } from 'lucide-react';
+import { SearchResult } from '@/types/search';
 import _ from 'lodash';
 
 interface TrackCardsProps {
-  tracks: Track[];
-  streamHistory: StreamCount[];
-  selectedAlbum: { release_date: string } | null;
-  onTrackSelect?: (track: Track) => void;
-}
+    tracks: Track[];
+    streamHistory: StreamCount[];
+    selectedAlbum?: SearchResult; 
+    onTrackSelect?: (track: Track) => void;
+  }
 
 const formatNumber = (num: number): string => {
   if (num >= 1000000000) {
@@ -52,7 +53,7 @@ const MiniChart: React.FC<{ data: StreamCount[] }> = ({ data }) => {
   );
 };
 
-const TrackCards = ({ tracks, streamHistory, selectedAlbum, onTrackSelect }: TrackCardsProps) => {
+const TrackCards = ({ tracks, streamHistory, onTrackSelect }: TrackCardsProps) => {
   const calculateRevenue = (streams: number) => streams * 0.004;
 
   const totalStreams = tracks.reduce((sum, track) => sum + track.playcount, 0);
