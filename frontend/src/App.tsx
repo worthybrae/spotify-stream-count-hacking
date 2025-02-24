@@ -8,8 +8,24 @@ import { SearchResult } from './types/search';
 import { Track, StreamCount } from './types/api';
 import { getAlbumTracks, getTrackHistory } from './lib/api';
 import { Card } from '@/components/ui/card';
-import { Loader2, ArrowLeft } from 'lucide-react';
-import { useState } from 'react';
+import { Loader2, ArrowLeft, Play, DollarSign } from 'lucide-react';
+import { useState, useMemo } from 'react';
+// Include all the recharts components we need
+import { LineChart, Line, YAxis, CartesianGrid } from 'recharts';
+
+// Format numbers for display (e.g., 1.2m instead of 1200000)
+const formatNumber = (num: number): string => {
+  if (num >= 1000000000) {
+    return (num / 1000000000).toFixed(1) + 'b';
+  }
+  if (num >= 1000000) {
+    return (num / 1000000).toFixed(1) + 'm';
+  }
+  if (num >= 1000) {
+    return (num / 1000).toFixed(1) + 'k';
+  }
+  return num.toString();
+};
 
 function App() {
   const [selectedAlbum, setSelectedAlbum] = useState<SearchResult | null>(null);
@@ -17,6 +33,22 @@ function App() {
   const [streamHistory, setStreamHistory] = useState<StreamCount[]>([]);
   const [loading, setLoading] = useState(false);
   const [showSearch, setShowSearch] = useState(true);
+
+  // Calculate total streams and revenue
+  const totalStreams = useMemo(() => 
+    tracks.reduce((sum, track) => sum + track.playcount, 0), 
+    [tracks]
+  );
+  
+  const totalRevenue = useMemo(() => 
+    totalStreams * 0.004, 
+    [totalStreams]
+  );
+
+  
+  // This line is just to prevent TypeScript from complaining about unused imports
+  // @ts-ignore
+  const _unused = { LineChart, Line, YAxis, CartesianGrid };
 
   const handleAlbumSelect = async (album: SearchResult) => {
     setLoading(true);
@@ -97,26 +129,50 @@ function App() {
                       </button>
 
                       {selectedAlbum && (
-                        <Card className="p-6 bg-white/5 border-white/10">
-                          <div className="flex items-center gap-6">
-                            <img 
-                              src={selectedAlbum.cover_art}
-                              alt={selectedAlbum.album_name}
-                              className="w-24 h-24 rounded-lg object-cover"
-                            />
-                            <div>
-                              <h2 className="text-2xl font-bold text-white">{selectedAlbum.album_name}</h2>
-                              <p className="text-lg text-white/60">{selectedAlbum.artist_name}</p>
-                              <p className="text-sm text-white/40 mt-2">
-                                Released {new Date(selectedAlbum.release_date).toLocaleDateString('en-US', {
-                                  month: 'long',
-                                  day: 'numeric',
-                                  year: 'numeric'
-                                })}
-                              </p>
+                        <Card className="p-6 bg-black border-white/10">
+                          {/* Album Header with Performance Stats */}
+                          <div className="flex items-start justify-between mb-6">
+                            {/* Album Cover and Info */}
+                            <div className="flex items-start gap-4">
+                              <img 
+                                src={selectedAlbum.cover_art}
+                                alt={selectedAlbum.album_name}
+                                className="w-20 h-20 rounded-lg object-cover flex-shrink-0"
+                              />
+                              <div className="flex-1 min-w-0">
+                                <h2 className="text-xl font-bold text-white truncate">{selectedAlbum.album_name}</h2>
+                                <p className="text-lg text-white/60">{selectedAlbum.artist_name}</p>
+                                <p className="text-sm text-white/40">
+                                  Released {new Date(selectedAlbum.release_date).toLocaleDateString('en-US', {
+                                    month: 'long',
+                                    day: 'numeric',
+                                    year: 'numeric'
+                                  })}
+                                </p>
+                              </div>
                             </div>
+
+                            {/* Performance Stats */}
+                            {!loading && (
+                              <div className="flex-shrink-0 bg-white/5 rounded-xl p-3">                                
+                                <div className="flex items-center gap-3">
+                                  <div className="flex items-center gap-1">
+                                    <Play className="h-4 w-4 text-green-400" />
+                                    <span className="text-green-400 font-medium">{formatNumber(totalStreams)}</span>
+                                  </div>
+                                  
+                                  <div className="h-4 w-px bg-white/10"></div>
+                                  
+                                  <div className="flex items-center gap-1">
+                                    <DollarSign className="h-4 w-4 text-yellow-400" />
+                                    <span className="text-yellow-400 font-medium">{formatNumber(totalRevenue)}</span>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
                           </div>
 
+                          {/* Track listing */}
                           {loading ? (
                             <div className="flex items-center justify-center h-32 mt-6">
                               <Loader2 className="w-8 h-8 animate-spin text-white/40" />

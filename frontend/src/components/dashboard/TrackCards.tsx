@@ -10,7 +10,7 @@ interface TrackCardsProps {
     streamHistory: StreamCount[];
     selectedAlbum?: SearchResult; 
     onTrackSelect?: (track: Track) => void;
-  }
+}
 
 const formatNumber = (num: number): string => {
   if (num >= 1000000000) {
@@ -26,9 +26,9 @@ const formatNumber = (num: number): string => {
 };
 
 const MetricBadge = ({ icon, value, className = "" }: { icon: React.ReactNode, value: string, className?: string }) => (
-  <div className={`px-3 py-1.5 rounded-full bg-white/5 hover:bg-white/10 transition-all flex items-center gap-2 ${className}`}>
+  <div className={`flex items-center gap-1 ${className}`}>
     {icon}
-    <p className="text-sm font-medium text-white">{value}</p>
+    <span className="text-sm font-medium">{value}</span>
   </div>
 );
 
@@ -56,31 +56,9 @@ const MiniChart: React.FC<{ data: StreamCount[] }> = ({ data }) => {
 const TrackCards = ({ tracks, streamHistory, onTrackSelect }: TrackCardsProps) => {
   const calculateRevenue = (streams: number) => streams * 0.004;
 
-  const totalStreams = tracks.reduce((sum, track) => sum + track.playcount, 0);
-  const totalRevenue = calculateRevenue(totalStreams);
-
   const getTrackHistory = (trackId: string) => {
     return streamHistory.filter(h => h.track_id === trackId);
   };
-
-  // Aggregate all stream data by day
-  const aggregatedStreamHistory = React.useMemo(() => {
-    // First group by truncated date (remove time component)
-    const groupedByDay = _.groupBy(streamHistory, (item) => {
-      const date = new Date(item.timestamp);
-      return date.toISOString().split('T')[0];
-    });
-
-    // Sum playcounts for each day
-    const dailyTotals = Object.entries(groupedByDay).map(([date, streams]) => ({
-      timestamp: date,
-      playcount: _.sumBy(streams, 'playcount'),
-      track_id: 'total'
-    }));
-
-    // Sort by date
-    return _.sortBy(dailyTotals, 'timestamp');
-  }, [streamHistory]);
 
   return (
     <div className="mt-6">
@@ -89,6 +67,7 @@ const TrackCards = ({ tracks, streamHistory, onTrackSelect }: TrackCardsProps) =
           const revenue = calculateRevenue(track.playcount);
           const trackHistory = getTrackHistory(track.track_id);
           const isViral = track.playcount > 10000000; // 10M streams threshold
+          const hasHistory = trackHistory.length > 0;
           
           return (
             <div
@@ -96,7 +75,7 @@ const TrackCards = ({ tracks, streamHistory, onTrackSelect }: TrackCardsProps) =
               className="p-3 rounded-xl bg-white/5 hover:bg-white/8 transition-all cursor-pointer group"
               onClick={() => onTrackSelect?.(track)}
             >
-              <div className="flex items-center gap-6">
+              <div className="flex items-center justify-between">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <p className="text-sm font-medium text-white truncate">{track.name}</p>
@@ -105,44 +84,36 @@ const TrackCards = ({ tracks, streamHistory, onTrackSelect }: TrackCardsProps) =
                   <p className="text-xs text-white/60">{track.artist_name}</p>
                 </div>
                 <div className="flex items-center gap-3">
-                  <MetricBadge 
-                    icon={<Play className="h-4 w-4 text-green-400" />}
-                    value={formatNumber(track.playcount)}
-                  />
-                  <MetricBadge 
-                    icon={<DollarSign className="h-4 w-4 text-yellow-400" />}
-                    value={formatNumber(revenue)}
-                  />
-                  <div className="text-green-400 transition-opacity group-hover:opacity-75">
-                    <MiniChart data={trackHistory} />
+                  {hasHistory && (
+                    <div className="text-green-400 transition-opacity group-hover:opacity-75">
+                      <MiniChart data={trackHistory} />
+                    </div>
+                  )}
+                  <div className="flex-shrink-0 text-white bg-white/5 rounded-xl p-3">
+                    <div className="flex items-center gap-3">
+                        <div className='text-green-400'>
+                        <MetricBadge 
+                        icon={<Play className="h-4 w-4  text-green-400" />}
+                        value={formatNumber(track.playcount)}
+                      />
+                        </div>
+                      
+                      
+                      <div className="h-4 w-px bg-white/10"></div>
+                      <div className='text-yellow-400'>
+                      <MetricBadge 
+                        icon={<DollarSign className="h-4 w-4 text-yellow-400" />}
+                        value={formatNumber(revenue)}
+                      />
+                      </div>
+                      
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
           );
         })}
-      </div>
-
-      <div className="mt-4 p-3 rounded-xl bg-white/5 hover:bg-white/8 transition-all">
-        <div className="flex items-center gap-6">
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-white">Total</p>
-            <p className="text-xs text-white/60">All Tracks</p>
-          </div>
-          <div className="flex items-center gap-3">
-            <MetricBadge 
-              icon={<Play className="h-4 w-4 text-green-400" />}
-              value={formatNumber(totalStreams)}
-            />
-            <MetricBadge 
-              icon={<DollarSign className="h-4 w-4 text-yellow-400" />}
-              value={formatNumber(totalRevenue)}
-            />
-            <div className="text-green-400">
-              <MiniChart data={aggregatedStreamHistory} />
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   );
