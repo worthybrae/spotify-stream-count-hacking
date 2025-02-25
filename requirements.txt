@@ -1,0 +1,11 @@
+fastapi
+uvicorn
+httpx
+spotipy
+python-dotenv
+asyncpg
+pydantic
+pydantic-settings
+pytest
+pytest-asyncio
+pytest-cov
