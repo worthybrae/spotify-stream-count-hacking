@@ -1,11 +1,9 @@
 name: Update Stream Counts
 
 on:
+  schedule:
+    - cron: "0 22 * * *" # Run at 10PM UTC (5PM EST)
   workflow_dispatch: # Allow manual triggers
-  workflow_run:
-    workflows: ["Check New Releases"]
-    types:
-      - completed
 
 jobs:
   update-streams:

@@ -29,12 +29,11 @@ async def main():
     error_count = 0
     
     async with get_db() as conn:
-        # First, get all albums we've saved
+        # Get ALL albums we've saved, instead of just 50
         albums = await conn.fetch("""
             SELECT album_id, artist_id 
             FROM albums 
             ORDER BY release_date DESC
-            LIMIT 50  -- Process newest albums first
         """)
         
         print(f"Found {len(albums)} albums to process")

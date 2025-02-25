@@ -22,6 +22,13 @@ async def save_album(album_id: str, artist_id: str, name: str,
             SET name = $3, cover_art = $4, release_date = $5
         """, album_id, artist_id, name, cover_art, release_date)
 
+async def save_stream_count(track_id: str, play_count: int):
+    async with get_db() as conn:
+        await conn.execute("""
+            INSERT INTO streams (track_id, play_count)
+            VALUES ($1, $2)
+        """, track_id, play_count)
+
 async def get_track_history(track_id: str, limit: int = 30):
     try:
         async with get_db() as conn:
