@@ -20,7 +20,7 @@ const MainLayout = () => {
       <Outlet />
 
       {/* Background Effect */}
-      <div className="fixed inset-0 pointer-events-none -z-10">
+      <div className="fixed inset-0 pointer-events-none -z-10 ">
         <svg className="absolute w-full h-full opacity-10" viewBox="0 0 1000 1000">
           <path
             d="M0,500 Q250,400 500,500 T1000,500"

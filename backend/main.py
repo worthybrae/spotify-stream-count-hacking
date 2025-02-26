@@ -58,7 +58,7 @@ app = FastAPI(
 # CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "*"],  # Update with your frontend URL in production
+    allow_origins=["http://localhost:5173", "https://streamclout.io", "*"],  # Update with your frontend URL in production
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],

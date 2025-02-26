@@ -73,7 +73,7 @@ const MiniStreamChart = ({ track, releaseDate }: { track: Track, releaseDate?: s
   if (streamData.length === 0) return null;
   
   return (
-    <div className="w-24 h-12 py-2">
+    <div className="w-36 h-12 py-2">
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={streamData}>
           <Line 
@@ -96,7 +96,7 @@ const TrackCards: React.FC<TrackCardsProps> = ({ tracks, selectedAlbum, onTrackS
 
   return (
     <div className="mt-6">
-      <div className="space-y-2 max-h-[calc(100vh-480px)] overflow-y-auto">
+      <div className="space-y-2 max-h-[500px] overflow-y-auto">
         {tracks.map((track) => {
           const revenue = calculateRevenue(track.playcount || 0);
           
@@ -114,7 +114,8 @@ const TrackCards: React.FC<TrackCardsProps> = ({ tracks, selectedAlbum, onTrackS
               className="p-3 rounded-xl bg-white/5 hover:bg-white/8 transition-all cursor-pointer group"
               onClick={() => onTrackSelect?.(track)}
             >
-              <div className="flex items-center justify-between">
+              {/* Desktop View (unchanged) */}
+              <div className="hidden md:flex items-center justify-between">
                 <div className="flex-1 min-w-0 mr-2">
                   <div className="flex items-center gap-2">
                     <div className="truncate max-w-[160px] group relative hover-scroll">
@@ -134,7 +135,6 @@ const TrackCards: React.FC<TrackCardsProps> = ({ tracks, selectedAlbum, onTrackS
                 </div>
                 
                 {/* Mini stream chart */}
-        
                 <MiniStreamChart track={track} releaseDate={selectedAlbum?.release_date} />
                 
                 <div className="flex-shrink-0 text-white bg-white/5 rounded-xl p-3 ml-4">
@@ -162,6 +162,39 @@ const TrackCards: React.FC<TrackCardsProps> = ({ tracks, selectedAlbum, onTrackS
                         icon={<TrendingUp className="h-4 w-4 text-blue-400" />}
                         value={`${formatNumber(streamsPerDay)}/d`}
                       />
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Mobile View (new design) */}
+              <div className="md:hidden">
+                <div className="flex items-center mb-2">
+                  <p className="text-sm font-medium text-white">{track.name}</p>
+                  <div className="ml-auto">
+                    <MiniStreamChart track={track} releaseDate={selectedAlbum?.release_date} />
+                  </div>
+                </div>
+                
+                <div className="flex items-center">
+                  <div className="flex">
+                    <div className="flex items-center gap-1 text-green-400">
+                      <Play className="h-4 w-4" />
+                      <span className="text-sm font-medium">{formatNumber(track.playcount || 0)}</span>
+                    </div>
+                    
+                    <div className="h-4 w-px bg-white/10 mx-2"></div>
+                    
+                    <div className="flex items-center gap-1 text-yellow-400">
+                      <DollarSign className="h-4 w-4" />
+                      <span className="text-sm font-medium">{formatNumber(revenue)}</span>
+                    </div>
+                    
+                    <div className="h-4 w-px bg-white/10 mx-2"></div>
+                    
+                    <div className="flex items-center gap-1 text-blue-400">
+                      <TrendingUp className="h-4 w-4" />
+                      <span className="text-sm font-medium">{formatNumber(streamsPerDay)}/d</span>
                     </div>
                   </div>
                 </div>

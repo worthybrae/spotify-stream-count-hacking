@@ -13,29 +13,30 @@ interface SearchResultsProps {
 }
 
 export const SearchResults: React.FC<SearchResultsProps> = ({ 
-  isVisible, 
-  results, 
-  searchStatus, 
-  onResultClick,
-  savingData = false
-}) => {
-  return (
-    <div className={`
-      absolute w-full space-y-2
-      transition-all duration-500 transform
-      ${isVisible ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-95 translate-y-4 pointer-events-none'}
-    `}>
-      {/* Add saving data indicator */}
-      {savingData && (
-        <Card className="bg-blue-500/20 border-blue-400/30 p-3">
-          <div className="flex items-center justify-center gap-3">
-            <Loader2 className="h-5 w-5 text-blue-400 animate-spin" />
-            <span className="text-blue-300">Saving album data...</span>
-          </div>
-        </Card>
-      )}
-      
-      {results.length === 0 ? (
+    isVisible, 
+    results, 
+    searchStatus, 
+    onResultClick,
+    savingData = false
+  }) => {
+    return (
+      <div className={`
+        absolute w-full space-y-2
+        transition-all duration-500 transform
+        ${isVisible ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-95 translate-y-4 pointer-events-none'}
+        max-h-[50vh] overflow-auto pb-8 mb-8
+      `}>
+        {/* Add saving data indicator */}
+        {savingData && (
+          <Card className="bg-blue-500/20 border-blue-400/30 p-3">
+            <div className="flex items-center justify-center gap-3">
+              <Loader2 className="h-5 w-5 text-blue-400 animate-spin" />
+              <span className="text-blue-300">Saving album data...</span>
+            </div>
+          </Card>
+        )}
+        
+        {results.length === 0 ? (
         <div className="text-center py-8 text-white/60">
           {searchStatus === 'too-short' && (
             "Type at least 3 characters to search"

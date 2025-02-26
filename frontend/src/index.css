@@ -59,15 +59,6 @@
   }
 }
  
-@layer base {
-  * {
-    @apply border-border;
-  }
-  body {
-    @apply bg-background text-foreground;
-  }
-}
- 
 
  
 @layer base {
@@ -79,24 +70,8 @@
   }
 }
 
-/* Add these classes to your global CSS file (like index.css) */
 
 @keyframes scrollText {
   0% { transform: translateX(0); }
   100% { transform: translateX(-100%); }
-}
-
-.hover-scroll:hover .scrolling-text {
-  white-space: nowrap;
-  display: inline-block;
-  animation: scrollText 8s linear infinite;
-}
-
-/* For the tooltip approach */
-.group:hover .group-hover\:block {
-  display: block;
-}
-
-.group:hover .group-hover\:text-clip {
-  text-overflow: clip;
 }

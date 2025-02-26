@@ -44,15 +44,17 @@ const SearchSection: React.FC<SearchSectionProps> = ({
         onChange={handleSearchChange}
       />
 
-      <div className="relative min-h-[300px]">
+<div className="relative min-h-[300px] max-h-[60vh]">
         <FeaturesGrid isVisible={showFeaturesGrid} />
         
-        <SearchResults
-          isVisible={showSearchResults}
-          results={results}
-          searchStatus={searchStatus}
-          onResultClick={handleResultSelect}
-        />
+        <div className="relative pb-16">
+          <SearchResults
+            isVisible={showSearchResults}
+            results={results}
+            searchStatus={searchStatus}
+            onResultClick={handleResultSelect}
+          />
+        </div>
       </div>
       
       <SearchStyles />

@@ -41,7 +41,8 @@ const AlbumDetail: React.FC<AlbumDetailProps> = ({
         </div>
       )}
 
-      <Card className="p-6 bg-black border-white/10">
+      {/* Modified container with max-width constraint for mobile */}
+      <Card className="p-4 md:p-6 bg-black border-white/10 max-w-full overflow-hidden">
         {/* Album Header with Performance Stats */}
         <AlbumHeader 
           album={selectedAlbum} 
