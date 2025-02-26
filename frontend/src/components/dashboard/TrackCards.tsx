@@ -1,13 +1,11 @@
 import React from 'react';
-import { Track, StreamCount } from '@/types/api';
-import { LineChart, Line } from 'recharts';
+import { Track } from '@/types/api';
 import { Flame, Play, DollarSign } from 'lucide-react';
 import { SearchResult } from '@/types/search';
-import _ from 'lodash';
 
 interface TrackCardsProps {
     tracks: Track[];
-    streamHistory: StreamCount[];
+    streamHistory?: any[]; // Not used but kept for compatibility
     selectedAlbum?: SearchResult; 
     onTrackSelect?: (track: Track) => void;
 }
@@ -32,42 +30,15 @@ const MetricBadge = ({ icon, value, className = "" }: { icon: React.ReactNode, v
   </div>
 );
 
-const MiniChart: React.FC<{ data: StreamCount[] }> = ({ data }) => {
-  const sortedData = [...data].sort((a, b) => 
-    new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
-  );
-
-  return (
-    <div className="w-24 h-12">
-      <LineChart width={96} height={48} data={sortedData}>
-        <Line
-          type="monotone"
-          dataKey="playcount"
-          stroke="currentColor"
-          strokeWidth={1.5}
-          dot={false}
-          isAnimationActive={false}
-        />
-      </LineChart>
-    </div>
-  );
-};
-
-const TrackCards = ({ tracks, streamHistory, onTrackSelect }: TrackCardsProps) => {
+const TrackCards = ({ tracks, onTrackSelect }: TrackCardsProps) => {
   const calculateRevenue = (streams: number) => streams * 0.004;
-
-  const getTrackHistory = (trackId: string) => {
-    return streamHistory.filter(h => h.track_id === trackId);
-  };
 
   return (
     <div className="mt-6">
       <div className="space-y-2 max-h-[calc(100vh-480px)] overflow-y-auto">
         {tracks.map((track) => {
-          const revenue = calculateRevenue(track.playcount);
-          const trackHistory = getTrackHistory(track.track_id);
-          const isViral = track.playcount > 10000000; // 10M streams threshold
-          const hasHistory = trackHistory.length > 0;
+          const revenue = calculateRevenue(track.playcount || 0);
+          const isViral = (track.playcount || 0) > 10000000; // 10M streams threshold
           
           return (
             <div
@@ -81,32 +52,29 @@ const TrackCards = ({ tracks, streamHistory, onTrackSelect }: TrackCardsProps) =
                     <p className="text-sm font-medium text-white truncate">{track.name}</p>
                     {isViral && <Flame className="h-5 w-5 text-orange-500" />}
                   </div>
-                  <p className="text-xs text-white/60">{track.artist_name}</p>
-                </div>
-                <div className="flex items-center gap-3">
-                  {hasHistory && (
-                    <div className="text-green-400 transition-opacity group-hover:opacity-75">
-                      <MiniChart data={trackHistory} />
-                    </div>
+                  {/* Handle optional artist_name */}
+                  {track.artist_name && (
+                    <p className="text-xs text-white/60">{track.artist_name}</p>
                   )}
+                </div>
+                <div className="flex items-center">
                   <div className="flex-shrink-0 text-white bg-white/5 rounded-xl p-3">
                     <div className="flex items-center gap-3">
-                        <div className='text-green-400'>
+                      <div className="text-green-400">
                         <MetricBadge 
-                        icon={<Play className="h-4 w-4  text-green-400" />}
-                        value={formatNumber(track.playcount)}
-                      />
-                        </div>
-                      
-                      
-                      <div className="h-4 w-px bg-white/10"></div>
-                      <div className='text-yellow-400'>
-                      <MetricBadge 
-                        icon={<DollarSign className="h-4 w-4 text-yellow-400" />}
-                        value={formatNumber(revenue)}
-                      />
+                          icon={<Play className="h-4 w-4 text-green-400" />}
+                          value={formatNumber(track.playcount || 0)}
+                        />
                       </div>
                       
+                      <div className="h-4 w-px bg-white/10"></div>
+                      
+                      <div className="text-yellow-400">
+                        <MetricBadge 
+                          icon={<DollarSign className="h-4 w-4 text-yellow-400" />}
+                          value={formatNumber(revenue)}
+                        />
+                      </div>
                     </div>
                   </div>
                 </div>

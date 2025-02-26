@@ -1,7 +1,6 @@
 # scripts/update_streams.py
 import asyncio
-from backend.unofficial_token_manager import TokenManager
-from backend.unofficial_spotify import SpotifyPartner
+from backend.unofficial_spotify import SpotifyPartner, TokenManager
 from backend.db import save_stream_count, get_db
 
 async def save_track_if_not_exists(conn, track_id: str, track_name: str, artist_id: str, album_id: str):

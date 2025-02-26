@@ -1,12 +1,8 @@
 # backend/models.py
 from pydantic import BaseModel
-from typing import List
+from typing import List, Optional
 from datetime import datetime, date
 
-
-class Artist(BaseModel):
-    artist_id: str
-    name: str
 
 class Album(BaseModel):
     album_id: str
@@ -14,12 +10,13 @@ class Album(BaseModel):
     name: str
     cover_art: str
     release_date: datetime
+    artist_name: str
 
 class Track(BaseModel):
     track_id: str
     name: str
     playcount: int
-    artist_name: str
+    artist_name: Optional[str] = None  # Made optional for flexibility
 
 class AlbumResponse(BaseModel):
     album_id: str
@@ -27,11 +24,14 @@ class AlbumResponse(BaseModel):
     artist_id: str
     artist_name: str
     tracks: List[Track]
+    total_streams: Optional[int] = 0
+    cover_art: Optional[str] = ""
+    release_date: Optional[str] = None
 
 class StreamCount(BaseModel):
     track_id: str
     playcount: int
-    timestamp: datetime
+    timestamp: Optional[datetime] = None
 
 class NewRelease(BaseModel):
     album_id: str
@@ -55,3 +55,12 @@ class AlbumSaveRequest(BaseModel):
     album: NewRelease
     streamHistory: List[StreamCount]
     tracks: List[Track]
+
+class AlbumWithTracksResponse(BaseModel):
+    album: dict
+    tracks: List[dict]
+    total_streams: int
+
+class StreamsAddRequest(BaseModel):
+    album_id: str
+    streams: List[StreamCount]

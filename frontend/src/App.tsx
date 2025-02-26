@@ -5,8 +5,8 @@ import { ApiPage } from './pages/ApiPage';
 import { SearchSection } from './components/dashboard/SearchSection';
 import TrackCards from './components/dashboard/TrackCards';
 import { SearchResult } from './types/search';
-import { Track, StreamCount } from './types/api';
-import { getAlbumTracks, getTrackHistory } from './lib/api';
+import { Track } from './types/api';
+import { getAlbumData } from './lib/api';
 import { Card } from '@/components/ui/card';
 import { Loader2, ArrowLeft, Play, DollarSign } from 'lucide-react';
 import { useState, useMemo } from 'react';
@@ -30,43 +30,41 @@ const formatNumber = (num: number): string => {
 function App() {
   const [selectedAlbum, setSelectedAlbum] = useState<SearchResult | null>(null);
   const [tracks, setTracks] = useState<Track[]>([]);
-  const [streamHistory, setStreamHistory] = useState<StreamCount[]>([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [showSearch, setShowSearch] = useState(true);
-
-  // Calculate total streams and revenue
-  const totalStreams = useMemo(() => 
-    tracks.reduce((sum, track) => sum + track.playcount, 0), 
-    [tracks]
-  );
+  const [totalStreams, setTotalStreams] = useState(0);
   
+  // Calculate revenue from streams
   const totalRevenue = useMemo(() => 
     totalStreams * 0.004, 
     [totalStreams]
   );
 
-  
   // This line is just to prevent TypeScript from complaining about unused imports
   // @ts-ignore
   const _unused = { LineChart, Line, YAxis, CartesianGrid };
 
   const handleAlbumSelect = async (album: SearchResult) => {
     setLoading(true);
+    setError(null);
     setSelectedAlbum(album);
     setShowSearch(false);
     
     try {
-      const albumData = await getAlbumTracks(album.album_id);
-      const historyPromises = albumData.tracks.map(track => 
-        getTrackHistory(track.track_id)
-      );
-      const histories = await Promise.all(historyPromises);
-      const combinedHistory = histories.flat();
+      // Get all album data in a single call
+      const albumData = await getAlbumData(album.album_id);
+      console.log('Album data loaded:', albumData);
       
-      setTracks(albumData.tracks);
-      setStreamHistory(combinedHistory);
+      if (albumData && albumData.tracks) {
+        setTracks(albumData.tracks);
+        setTotalStreams(albumData.total_streams);
+      } else {
+        setError('No track data found for this album');
+      }
     } catch (error) {
       console.error('Failed to fetch album data:', error);
+      setError('Failed to load album data. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -75,8 +73,9 @@ function App() {
   const handleBackToSearch = () => {
     setSelectedAlbum(null);
     setTracks([]);
-    setStreamHistory([]);
+    setTotalStreams(0);
     setShowSearch(true);
+    setError(null);
   };
 
   return (
@@ -128,6 +127,12 @@ function App() {
                         Back to Search
                       </button>
 
+                      {error && (
+                        <div className="bg-red-500/20 border border-red-500/30 p-4 rounded-lg text-red-300">
+                          {error}
+                        </div>
+                      )}
+
                       {selectedAlbum && (
                         <Card className="p-6 bg-black border-white/10">
                           {/* Album Header with Performance Stats */}
@@ -172,17 +177,26 @@ function App() {
                             )}
                           </div>
 
-                          {/* Track listing */}
+                          {/* Loading state */}
                           {loading ? (
                             <div className="flex items-center justify-center h-32 mt-6">
                               <Loader2 className="w-8 h-8 animate-spin text-white/40" />
                             </div>
-                          ) : tracks.length > 0 && (
-                            <TrackCards 
-                              tracks={tracks}
-                              streamHistory={streamHistory}
-                              selectedAlbum={selectedAlbum}
-                            />
+                          ) : (
+                            <div className="space-y-6">                              
+                              {/* Track Cards */}
+                              {tracks.length > 0 ? (
+                                <TrackCards 
+                                  tracks={tracks}
+                                  streamHistory={[]} // Not using stream history since we don't have it
+                                  selectedAlbum={selectedAlbum}
+                                />
+                              ) : (
+                                <div className="text-center py-8 text-white/60">
+                                  No tracks found for this album
+                                </div>
+                              )}
+                            </div>
                           )}
                         </Card>
                       )}

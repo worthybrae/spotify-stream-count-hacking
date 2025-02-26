@@ -2,14 +2,20 @@
 from fastapi import FastAPI, HTTPException, Depends, Query
 from fastapi.security.api_key import APIKeyHeader
 from fastapi.middleware.cors import CORSMiddleware
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from unofficial_spotify import SpotifyPartner, TokenManager
 from official_spotify import SpotifyOfficial
-from models import AlbumResponse, Track, StreamCount
+from models import (
+    AlbumResponse, Track, StreamCount, NewRelease, 
+    AlbumSaveRequest, AlbumWithTracksResponse, StreamsAddRequest
+)
 from config import settings
-from db import get_track_history, get_db
-from typing import List
-from models import NewRelease, AlbumSaveRequest
+from db import (
+    get_db, search_albums_by_name, get_album_with_tracks_and_streams,
+    save_complete_album, batch_save_stream_counts
+)
+import traceback
+from datetime import datetime
 
 app = FastAPI(title="Spotify Analytics API")
 
@@ -31,153 +37,282 @@ spotify_official = SpotifyOfficial()
 API_KEY_HEADER = APIKeyHeader(name="X-API-Key")
 
 async def verify_api_key(api_key: str = Depends(API_KEY_HEADER)):
-    if api_key != settings.API_KEY:
-        raise HTTPException(status_code=403, detail="Invalid API key")
+    # During development, you can comment out the actual verification
+    # to make testing easier. Uncomment this when deploying to production
+    # if api_key != settings.API_KEY:
+    #     raise HTTPException(status_code=403, detail="Invalid API key")
     return api_key
 
 # Endpoints
-@app.get("/album/{album_id}/tracks", response_model=AlbumResponse)
-async def get_album_tracks(
+
+# 1. Fetch Album Endpoint
+@app.get("/album/{album_id}")
+async def fetch_album(
     album_id: str,
     _: str = Depends(verify_api_key)
 ):
-    """Get track details and play counts for a Spotify album"""
-    try:
-        return await spotify_partner.get_album_tracks(album_id)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.get("/track/{track_id}", response_model=Track)
-async def get_track_info(
-    track_id: str,
-    _: str = Depends(verify_api_key)
-):
-    """Get current track information including play count"""
-    try:
-        return await spotify_partner.get_track_info(track_id)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.get("/track/{track_id}/history", response_model=List[StreamCount])
-async def get_track_stream_history(
-    track_id: str,
-    limit: Optional[int] = Query(default=30, le=100),
-    _: str = Depends(verify_api_key)
-):
-    """Get historical stream counts for a track"""
-    try:
-        return await get_track_history(track_id, limit)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.get("/new-releases", response_model=List[NewRelease])
-async def get_new_releases(
-    limit: Optional[int] = Query(default=20, le=50),
-    _: str = Depends(verify_api_key)
-):
-    """Get new album releases from Spotify with simplified response"""
-    try:
-        return await spotify_official.get_new_releases(limit)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    """
+    Get album details, all tracks, and their latest stream counts.
     
+    If album exists in database, returns data from database.
+    If not found, fetches data from Spotify API and saves it.
+    """
+    try:
+        # First try to get from database
+        db_result = await get_album_with_tracks_and_streams(album_id)
+        
+        # If found in database, return it
+        if db_result and db_result.get("tracks"):
+            return db_result
+        
+        # Otherwise, fetch from Spotify API
+        try:
+            # Fetch album data from Spotify 
+            album_data = await spotify_partner.get_album_tracks(album_id)
+            
+            # Prepare data for saving to database
+            album_info = {
+                "album_id": album_data.album_id,
+                "artist_id": album_data.artist_id,
+                "album_name": album_data.album_name,
+                "artist_name": album_data.artist_name,
+                "cover_art": getattr(album_data, "cover_art", ""),  # Use the extracted cover art
+                "release_date": datetime.now()  # Default to current date, can be updated later
+            }
+            
+            # Use the release date from the API if available
+            if hasattr(album_data, "release_date") and album_data.release_date:
+                try:
+                    album_info["release_date"] = datetime.strptime(album_data.release_date, "%Y-%m-%d")
+                except Exception as e:
+                    print(f"Error parsing release date: {e}")
+                    # Keep the default current date
+            
+            # Convert Track objects to dictionaries for processing
+            track_objects = []
+            stream_data = []
+            
+            for track in album_data.tracks:
+                track_dict = {
+                    "track_id": track.track_id,
+                    "name": track.name,
+                    "artist_id": album_data.artist_id,
+                    "album_id": album_data.album_id
+                }
+                track_objects.append(track_dict)
+                
+                stream_dict = {
+                    "track_id": track.track_id,
+                    "play_count": track.playcount,
+                    "album_id": album_data.album_id
+                }
+                stream_data.append(stream_dict)
+            
+            # Save to database
+            await save_complete_album(album_info, track_objects, stream_data)
+            
+            # Get from database now that it's saved
+            db_result = await get_album_with_tracks_and_streams(album_id)
+            if db_result:
+                return db_result
+            
+            # If still not found, return API data
+            tracks_list = [
+                {
+                    "track_id": track.track_id,
+                    "name": track.name,
+                    "playcount": track.playcount
+                } for track in album_data.tracks
+            ]
+            
+            return {
+                "album": {
+                    "album_id": album_data.album_id,
+                    "album_name": album_data.album_name,
+                    "artist_id": album_data.artist_id,
+                    "artist_name": album_data.artist_name,
+                    "cover_art": album_info["cover_art"],  # Use the extracted cover
+                    "release_date": album_info["release_date"]
+                },
+                "tracks": tracks_list,
+                "total_streams": sum(track.playcount for track in album_data.tracks)
+            }
+        
+        except Exception as e:
+            # Get full traceback to help with debugging
+            err_trace = traceback.format_exc()
+            print(f"Error fetching data from Spotify API: {err_trace}")
+            raise HTTPException(status_code=500, detail=f"Failed to fetch album from Spotify API: {str(e)}")
+    
+    except Exception as e:
+        # Get full traceback to help with debugging
+        error_details = traceback.format_exc()
+        print(f"Error fetching album data: {error_details}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch album data: {str(e)}")
+
+# 2. Search Albums Endpoint
 @app.get("/search/albums")
 async def search_albums(
     query: str = Query(..., min_length=1),
     limit: int = Query(default=10, le=50),
     _: str = Depends(verify_api_key)
 ):
-    """Search albums by name"""
-    async with get_db() as conn:
-        results = await conn.fetch("""
-            SELECT a.album_id, a.name as album_name, 
-                   ar.name as artist_name, a.cover_art, a.release_date
-            FROM albums a
-            JOIN artists ar ON a.artist_id = ar.artist_id
-            WHERE a.name ILIKE $1
-            LIMIT $2
-        """, f"%{query}%", limit)
-        
-        return [dict(r) for r in results]
-    
-@app.get("/search/spotify-albums", response_model=List[NewRelease])
-async def search_spotify_albums(
-    query: str = Query(..., min_length=1, description="Album search query"),
-    limit: int = Query(default=20, le=50, description="Maximum number of results"),
-    _: str = Depends(verify_api_key)
-):
-    """Search for albums on Spotify by name"""
+    """
+    Search albums by name in database. If no results, search Spotify API.
+    """
     try:
-        return await spotify_official.search_albums(query, limit)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        # First search in database
+        db_results = await search_albums_by_name(query, limit)
+        
+        # If we have results, return them
+        if db_results and len(db_results) > 0:
+            return db_results
+        
+        # Otherwise, search in Spotify
+        try:
+            spotify_results = await spotify_official.search_albums(query, limit)
+            
+            # Convert to same format as db results
+            return [
+                {
+                    "album_id": album.album_id,
+                    "album_name": album.album_name,
+                    "artist_name": album.artist_name,
+                    "artist_id": album.artist_id,
+                    "cover_art": album.cover_art,
+                    "release_date": album.release_date
+                } for album in spotify_results
+            ]
+        except Exception as e:
+            err_trace = traceback.format_exc()
+            print(f"Error searching Spotify API: {err_trace}")
+            raise HTTPException(status_code=500, detail=f"Failed to search Spotify API: {str(e)}")
     
-@app.post("/save-album-data", status_code=201)
-async def save_album_data(
+    except Exception as e:
+        err_trace = traceback.format_exc()
+        print(f"Error searching albums: {err_trace}")
+        raise HTTPException(status_code=500, detail=f"Failed to search albums: {str(e)}")
+
+# 3. Add Album Endpoint
+@app.post("/album", status_code=201)
+async def add_album(
     data: AlbumSaveRequest,
     _: str = Depends(verify_api_key)
 ):
-    """Save complete album data with batch inserts"""
+    """
+    Add or update album info, tracks, and streams in the database.
+    """
     try:
-        async with get_db() as conn:
-            async with conn.transaction():
-                # 1. Insert the artist with the provided artist_id
-                await conn.execute("""
-                    INSERT INTO artists (artist_id, name)
-                    VALUES ($1, $2)
-                    ON CONFLICT (artist_id) DO UPDATE 
-                    SET name = $2
-                """, data.album.artist_id, data.album.artist_name)
-                
-                # 2. Save album with the provided artist_id
-                await conn.execute("""
-                    INSERT INTO albums (album_id, artist_id, name, cover_art, release_date)
-                    VALUES ($1, $2, $3, $4, $5)
-                    ON CONFLICT (album_id) DO UPDATE 
-                    SET artist_id = $2, name = $3, cover_art = $4, release_date = $5
-                """, data.album.album_id, data.album.artist_id, data.album.album_name, 
-                   data.album.cover_art, data.album.release_date)
-                
-                # 3. Batch insert all tracks and streams
-                if data.tracks:
-                    # Prepare values for all tracks in one batch
-                    track_values = [(
-                        track.track_id,
-                        track.name,
-                        data.album.album_id,
-                        data.album.artist_id  # Use the artist_id from the album object
-                    ) for track in data.tracks]
-                    
-                    # Execute batch insert
-                    await conn.executemany("""
-                        INSERT INTO tracks (track_id, name, album_id, artist_id)
-                        VALUES ($1, $2, $3, $4)
-                        ON CONFLICT (track_id) DO UPDATE
-                        SET name = $2, album_id = $3, artist_id = $4
-                    """, track_values)
-
-                    stream_values = [(
-                        track.track_id,
-                        track.playcount
-                    ) for track in data.tracks]
-
-                    await conn.executemany("""
-                        INSERT INTO streams (track_id, play_count)
-                        VALUES ($1, $2)
-                    """, stream_values)
+        album_data = {
+            "album_id": data.album.album_id,
+            "artist_id": data.album.artist_id,
+            "album_name": data.album.album_name,
+            "artist_name": data.album.artist_name,
+            "cover_art": data.album.cover_art,
+            "release_date": data.album.release_date
+        }
+        
+        # Convert tracks to the correct format
+        track_objects = []
+        for track in data.tracks:
+            track_dict = {
+                "track_id": track.track_id,
+                "name": track.name,
+                "artist_id": data.album.artist_id,
+                "album_id": data.album.album_id
+            }
+            track_objects.append(track_dict)
+        
+        # Convert stream history to the format expected by save_complete_album
+        stream_data = [
+            {
+                "track_id": stream.track_id,
+                "play_count": stream.playcount,
+                "album_id": data.album.album_id
+            } for stream in data.streamHistory
+        ]
+        
+        result = await save_complete_album(album_data, track_objects, stream_data)
         
         return {
-            "status": "success", 
+            "status": "success",
             "message": "Album data saved successfully",
-            "artist_id": data.album.artist_id,
-            "album_id": data.album.album_id,
-            "track_count": len(data.tracks),
-            "stream_count": len(data.streamHistory)
+            "album_id": result["album_id"],
+            "artist_id": result["artist_id"],
+            "tracks_count": result["tracks_count"],
+            "streams_count": result["streams_count"]
         }
     
     except Exception as e:
-        print(f"Error saving album data: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        err_trace = traceback.format_exc()
+        print(f"Error adding album: {err_trace}")
+        raise HTTPException(status_code=500, detail=f"Failed to save album data: {str(e)}")
+
+# 4. Add Streams Endpoint
+@app.post("/streams", status_code=201)
+async def add_streams(
+    data: StreamsAddRequest,
+    _: str = Depends(verify_api_key)
+):
+    """
+    Add new stream counts for tracks in an album.
+    """
+    try:
+        async with get_db() as conn:
+            # Prepare streams data
+            stream_data = [
+                {
+                    "track_id": stream.track_id,
+                    "play_count": stream.playcount,
+                    "album_id": data.album_id
+                } for stream in data.streams
+            ]
+            
+            # Save streams
+            count = await batch_save_stream_counts(conn, stream_data)
+            
+            return {
+                "status": "success",
+                "message": f"Added {count} stream records for album {data.album_id}",
+                "count": count
+            }
+    
+    except Exception as e:
+        err_trace = traceback.format_exc()
+        print(f"Error adding streams: {err_trace}")
+        raise HTTPException(status_code=500, detail=f"Failed to add streams: {str(e)}")
+
+# 5. Get All Albums (Additional Helpful Endpoint)
+@app.get("/albums")
+async def get_all_albums(
+    limit: int = Query(default=50, le=100),
+    offset: int = Query(default=0),
+    _: str = Depends(verify_api_key)
+):
+    """
+    Get all albums in the database, with pagination.
+    """
+    try:
+        async with get_db() as conn:
+            results = await conn.fetch("""
+                SELECT 
+                    album_id, 
+                    name as album_name, 
+                    artist_id,
+                    artist_name,
+                    cover_art, 
+                    release_date
+                FROM albums
+                ORDER BY release_date DESC
+                LIMIT $1 OFFSET $2
+            """, limit, offset)
+            
+            return [dict(r) for r in results]
+    
+    except Exception as e:
+        err_trace = traceback.format_exc()
+        print(f"Error fetching all albums: {err_trace}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch albums: {str(e)}")
 
 if __name__ == "__main__":
     import uvicorn

@@ -3,6 +3,7 @@ import asyncpg
 from contextlib import asynccontextmanager
 from datetime import datetime
 from config import settings
+from typing import List, Dict, Any
 
 @asynccontextmanager
 async def get_db():
@@ -12,37 +13,272 @@ async def get_db():
     finally:
         await conn.close()
 
-async def save_album(album_id: str, artist_id: str, name: str, 
-                    cover_art: str, release_date: datetime):
-    async with get_db() as conn:
-        await conn.execute("""
-            INSERT INTO albums (album_id, artist_id, name, cover_art, release_date)
-            VALUES ($1, $2, $3, $4, $5)
-            ON CONFLICT (album_id) DO UPDATE 
-            SET name = $3, cover_art = $4, release_date = $5
-        """, album_id, artist_id, name, cover_art, release_date)
+# ---- ALBUM OPERATIONS ----
 
-async def save_stream_count(track_id: str, play_count: int):
+async def search_albums_by_name(query: str, limit: int = 20):
+    """
+    Search for albums by name
+    
+    Args:
+        query: Search query string
+        limit: Maximum number of results to return
+        
+    Returns:
+        List of album details matching the search query
+    """
     async with get_db() as conn:
-        await conn.execute("""
-            INSERT INTO streams (track_id, play_count)
-            VALUES ($1, $2)
-        """, track_id, play_count)
+        results = await conn.fetch("""
+            SELECT 
+                album_id, 
+                name as album_name, 
+                cover_art, 
+                release_date,
+                artist_id,
+                artist_name
+            FROM albums
+            WHERE name ILIKE $1
+            ORDER BY release_date DESC
+            LIMIT $2
+        """, f"%{query}%", limit)
+        
+        return [dict(r) for r in results]
 
-async def get_track_history(track_id: str, limit: int = 30):
-    try:
-        async with get_db() as conn:
-            results = await conn.fetch("""
-                SELECT 
-                    track_id as "track_id",
-                    play_count as "playcount",
-                    timestamp as "timestamp"
-                FROM streams 
-                WHERE track_id = $1 
-                ORDER BY timestamp DESC 
-                LIMIT $2
-            """, track_id, limit)
-            return [dict(r) for r in results] if results else []
-    except Exception as e:
-        print(f"Database error in get_track_history: {str(e)}")
-        raise
+async def get_album_with_tracks_and_streams(album_id: str):
+    """
+    Get complete album data including all tracks and their latest stream counts
+    
+    Args:
+        album_id: Spotify album ID
+        
+    Returns:
+        Dict with album details, tracks, and their stream counts
+    """
+    async with get_db() as conn:
+        # Get album details
+        album = await conn.fetchrow("""
+            SELECT 
+                album_id,
+                name as album_name,
+                cover_art,
+                release_date,
+                artist_id,
+                artist_name
+            FROM albums
+            WHERE album_id = $1
+        """, album_id)
+        
+        if not album:
+            return None
+            
+        # Get tracks with their latest stream counts
+        tracks = await conn.fetch("""
+            WITH latest_streams AS (
+                SELECT DISTINCT ON (track_id)
+                    track_id, play_count
+                FROM streams
+                WHERE album_id = $1
+                ORDER BY track_id, timestamp DESC
+            )
+            SELECT 
+                t.track_id,
+                t.name,
+                COALESCE(ls.play_count, 0) as playcount
+            FROM tracks t
+            LEFT JOIN latest_streams ls ON t.track_id = ls.track_id
+            WHERE t.album_id = $1
+            ORDER BY t.name
+        """, album_id)
+        
+        # Get total streams for the album
+        total_streams = await conn.fetchval("""
+            WITH latest_streams AS (
+                SELECT DISTINCT ON (track_id)
+                    track_id, play_count
+                FROM streams
+                WHERE album_id = $1
+                ORDER BY track_id, timestamp DESC
+            )
+            SELECT COALESCE(SUM(play_count), 0)
+            FROM latest_streams
+        """, album_id)
+        
+        return {
+            "album": dict(album),
+            "tracks": [dict(t) for t in tracks],
+            "total_streams": total_streams
+        }
+
+# ---- TRACK OPERATIONS ----
+
+async def get_track_with_stream_history(track_id: str, limit: int = 30):
+    """
+    Get track details with its stream count history
+    
+    Args:
+        track_id: Spotify track ID
+        limit: Maximum number of stream history records to return
+        
+    Returns:
+        Dict with track details and stream history
+    """
+    async with get_db() as conn:
+        # Get track details
+        track = await conn.fetchrow("""
+            SELECT 
+                t.track_id,
+                t.name,
+                t.album_id,
+                a.name as album_name,
+                a.artist_id,
+                a.artist_name
+            FROM tracks t
+            JOIN albums a ON t.album_id = a.album_id
+            WHERE t.track_id = $1
+        """, track_id)
+        
+        if not track:
+            return None
+            
+        # Get stream history
+        streams = await conn.fetch("""
+            SELECT 
+                stream_id,
+                play_count as playcount,
+                timestamp
+            FROM streams
+            WHERE track_id = $1
+            ORDER BY timestamp DESC
+            LIMIT $2
+        """, track_id, limit)
+        
+        return {
+            "track": dict(track),
+            "streams": [dict(s) for s in streams]
+        }
+
+# ---- BATCH OPERATIONS ----
+
+async def save_album(conn, album_id: str, artist_id: str, name: str, 
+                    cover_art: str, release_date: datetime, artist_name: str):
+    """Save album if it doesn't already exist in the database"""
+    await conn.execute("""
+        INSERT INTO albums (album_id, artist_id, name, cover_art, release_date, artist_name)
+        VALUES ($1, $2, $3, $4, $5, $6)
+        ON CONFLICT (album_id) DO UPDATE 
+        SET artist_id = $2, name = $3, cover_art = $4, release_date = $5, artist_name = $6
+    """, album_id, artist_id, name, cover_art, release_date, artist_name)
+
+async def batch_save_tracks(conn, tracks_data: List[Dict[str, Any]]):
+    """
+    Batch save multiple tracks at once
+    
+    Args:
+        conn: Database connection
+        tracks_data: List of dicts with keys: track_id, name, artist_id, album_id
+    """
+    if not tracks_data:
+        return 0
+        
+    # Prepare values for executemany
+    values = [
+        (item['track_id'], item['name'], item['artist_id'], item['album_id'])
+        for item in tracks_data
+    ]
+    
+    # Execute batch insert
+    await conn.executemany("""
+        INSERT INTO tracks (track_id, name, artist_id, album_id)
+        VALUES ($1, $2, $3, $4)
+        ON CONFLICT (track_id) DO UPDATE 
+        SET name = $2, artist_id = $3, album_id = $4
+    """, values)
+    
+    return len(values)
+
+async def batch_save_stream_counts(conn, stream_data_list: List[Dict[str, Any]]):
+    """
+    Batch save multiple stream counts at once
+    
+    Args:
+        conn: Database connection
+        stream_data_list: List of dicts with keys: track_id, play_count, album_id
+    
+    Returns:
+        Number of records inserted
+    """
+    if not stream_data_list:
+        return 0
+        
+    # Prepare values for executemany
+    values = [
+        (item['track_id'], item['play_count'], item['album_id']) 
+        for item in stream_data_list
+    ]
+    
+    # Execute batch insert
+    await conn.executemany("""
+        INSERT INTO streams (track_id, play_count, album_id)
+        VALUES ($1, $2, $3)
+    """, values)
+    
+    return len(values)
+
+# Full album process: save album, tracks, and streams
+async def save_complete_album(album_data: Dict, tracks_data: List[Dict], stream_data: List[Dict]):
+    """
+    Save a complete album with its tracks, and stream counts
+    
+    Args:
+        album_data: Dict with album and artist details
+        tracks_data: List of track details
+        stream_data: List of stream counts
+        
+    Returns:
+        Dict with summary of saved records
+    """
+    async with get_db() as conn:
+        async with conn.transaction():
+            # Save album
+            await save_album(
+                conn,
+                album_data['album_id'],
+                album_data['artist_id'],
+                album_data['album_name'],
+                album_data.get('cover_art', ''),
+                album_data['release_date'],
+                album_data['artist_name']
+            )
+            
+            # Prepare tracks data
+            track_batch = [
+                {
+                    'track_id': track['track_id'],
+                    'name': track['name'],
+                    'artist_id': album_data['artist_id'],
+                    'album_id': album_data['album_id']
+                }
+                for track in tracks_data
+            ]
+            
+            # Save tracks
+            tracks_count = await batch_save_tracks(conn, track_batch)
+            
+            # Prepare streams data 
+            stream_batch = [
+                {
+                    'track_id': stream['track_id'],
+                    'play_count': stream['play_count'],
+                    'album_id': album_data['album_id']
+                }
+                for stream in stream_data
+            ]
+            
+            # Save streams
+            streams_count = await batch_save_stream_counts(conn, stream_batch)
+            
+            return {
+                'album_id': album_data['album_id'],
+                'artist_id': album_data['artist_id'],
+                'tracks_count': tracks_count,
+                'streams_count': streams_count
+            }
