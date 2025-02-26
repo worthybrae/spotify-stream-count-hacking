@@ -73,7 +73,7 @@ const MiniStreamChart = ({ track, releaseDate }: { track: Track, releaseDate?: s
   if (streamData.length === 0) return null;
   
   return (
-    <div className="w-40 h-12 py-2">
+    <div className="w-24 h-12 py-2">
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={streamData}>
           <Line 

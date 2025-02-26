@@ -1,6 +1,6 @@
 import React from 'react';
 import { Card } from '@/components/ui/card';
-import { TrendingUp, BarChart3, Database, Clock } from 'lucide-react';
+import { TrendingUp, BarChart3, KeyRound, Clock } from 'lucide-react';
 
 export const featuresData = [
   {
@@ -14,9 +14,9 @@ export const featuresData = [
     description: "Fresh streaming data every 24 hours"
   },
   {
-    icon: <Database className="h-5 w-5 text-pink-400" />,
-    title: "Direct Integration",
-    description: "Connected to Spotify's platform"
+    icon: <KeyRound className="h-5 w-5 text-pink-400" />,
+    title: "Secret Data Access",
+    description: "Access Spotify's internal data"
   },
   {
     icon: <Clock className="h-5 w-5 text-green-400" />,
@@ -32,8 +32,8 @@ interface FeaturesGridProps {
 export const FeaturesGrid: React.FC<FeaturesGridProps> = ({ isVisible }) => {
   return (
     <div className={`
-      grid grid-cols-2 gap-3 absolute w-full
-      transition-all duration-500 transform
+      grid md:grid-cols-2 gap-3 absolute w-full
+      transition-all duration-500 transform grid-cols-1
       ${isVisible ? 'opacity-100 scale-100' : 'opacity-0 scale-95 -translate-y-4 pointer-events-none'}
     `}>
       {featuresData.map((feature, index) => (
