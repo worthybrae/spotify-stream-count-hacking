@@ -1,7 +1,5 @@
-// lib/api.ts
-import axios, { AxiosError } from 'axios';
-import { NewRelease, Track, StreamCount } from '../types/api';
-import { SearchResult } from '../types/search';
+import axios from 'axios';
+import { Track, StreamCount } from '../../types/api';
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8000',
@@ -9,19 +7,6 @@ const api = axios.create({
     'X-API-Key': import.meta.env.VITE_API_KEY || 'dev-key',
   },
 });
-
-// Search albums by name - returns database results or Spotify results if none found
-export const searchAlbums = async (query: string, limit: number = 10): Promise<SearchResult[]> => {
-  try {
-    const response = await api.get('/search/albums', {
-      params: { query, limit }
-    });
-    return response.data;
-  } catch (error) {
-    console.error('Error searching albums:', error);
-    return [];
-  }
-};
 
 // Get album details with tracks and stream counts in a single call
 export const getAlbumData = async (albumId: string): Promise<{
@@ -37,7 +22,6 @@ export const getAlbumData = async (albumId: string): Promise<{
   total_streams: number;
 }> => {
   try {
-    // Updated endpoint path from /album/{id} to /albums/{id}
     const response = await api.get(`/albums/${albumId}`);
     console.log('Album data response:', response.data);
     return response.data;
@@ -49,7 +33,7 @@ export const getAlbumData = async (albumId: string): Promise<{
 
 // Save complete album data
 export const saveAlbumData = async (
-  album: NewRelease, 
+  album: any, 
   tracks: Track[], 
   streamHistory: StreamCount[]
 ): Promise<any> => {
@@ -60,44 +44,24 @@ export const saveAlbumData = async (
       streamHistory
     };
     
-    // Updated endpoint path from /album to /albums
     const response = await api.post('/albums', requestData);
     return response.data;
   } catch (error) {
     console.error('Failed to save album data:', error);
     if (axios.isAxiosError(error)) {
-      const axiosError = error as AxiosError;
       console.error('API Error Details:', {
-        message: axiosError.message,
-        status: axiosError.response?.status,
-        data: axiosError.response?.data
+        message: error.message,
+        status: error.response?.status,
+        data: error.response?.data
       });
     }
     throw error;
   }
 };
 
-// Add new stream counts
-export const addStreamCounts = async (albumId: string, streams: StreamCount[]): Promise<any> => {
-  try {
-    const requestData = {
-      album_id: albumId,
-      streams
-    };
-    
-    // This endpoint path remains the same
-    const response = await api.post('/streams', requestData);
-    return response.data;
-  } catch (error) {
-    console.error('Failed to add stream counts:', error);
-    throw error;
-  }
-};
-
 // Get all albums (paginated)
-export const getAllAlbums = async (limit: number = 50, offset: number = 0): Promise<SearchResult[]> => {
+export const getAllAlbums = async (limit: number = 50, offset: number = 0): Promise<any[]> => {
   try {
-    // This endpoint path remains the same
     const response = await api.get('/albums', {
       params: { limit, offset }
     });

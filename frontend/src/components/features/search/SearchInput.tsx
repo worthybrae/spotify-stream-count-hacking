@@ -1,4 +1,4 @@
-// components/dashboard/SearchInput.tsx
+import React from 'react';
 import { Input } from '@/components/ui/input';
 import { Search, Loader2 } from 'lucide-react';
 
@@ -8,7 +8,11 @@ interface SearchInputProps {
   onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
 }
 
-export function SearchInput({ searchValue, loading, onChange }: SearchInputProps) {
+export const SearchInput: React.FC<SearchInputProps> = ({ 
+  searchValue, 
+  loading, 
+  onChange 
+}) => {
   return (
     <div className="relative">
       <Input
@@ -29,4 +33,4 @@ export function SearchInput({ searchValue, loading, onChange }: SearchInputProps
       </div>
     </div>
   );
-}
+};

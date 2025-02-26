@@ -1,43 +1,24 @@
-// components/dashboard/SearchResults.tsx
+import React from 'react';
 import { Card } from '@/components/ui/card';
-import { Loader2, Save } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { SearchResult } from '@/types/search';
+import { formatDate } from '@/lib/utils/formatters';
 
-// Update the interface to include savingData
 interface SearchResultsProps {
   isVisible: boolean;
   results: SearchResult[];
   searchStatus: string;
-  searchSource: 'db' | 'spotify';
   onResultClick: (result: SearchResult) => void;
-  savingData?: boolean; // Add this prop with optional flag
+  savingData?: boolean;
 }
 
-const formatReleaseDate = (dateString: string | null | undefined): string => {
-  if (!dateString) return 'Release date unavailable';
-  
-  try {
-    const date = new Date(dateString);
-    return isNaN(date.getTime()) 
-      ? 'Release date unavailable' 
-      : date.toLocaleDateString('en-US', {
-          month: 'long',
-          day: 'numeric',
-          year: 'numeric'
-        });
-  } catch {
-    return 'Release date unavailable';
-  }
-};
-
-export function SearchResults({ 
+export const SearchResults: React.FC<SearchResultsProps> = ({ 
   isVisible, 
   results, 
   searchStatus, 
-  searchSource, 
   onResultClick,
-  savingData = false // Add default value
-}: SearchResultsProps) {
+  savingData = false
+}) => {
   return (
     <div className={`
       absolute w-full space-y-2
@@ -48,7 +29,7 @@ export function SearchResults({
       {savingData && (
         <Card className="bg-blue-500/20 border-blue-400/30 p-3">
           <div className="flex items-center justify-center gap-3">
-            <Save className="h-5 w-5 text-blue-400 animate-pulse" />
+            <Loader2 className="h-5 w-5 text-blue-400 animate-spin" />
             <span className="text-blue-300">Saving album data...</span>
           </div>
         </Card>
@@ -59,16 +40,10 @@ export function SearchResults({
           {searchStatus === 'too-short' && (
             "Type at least 3 characters to search"
           )}
-          {searchStatus === 'searching-db' && (
+          {searchStatus === 'searching' && (
             <div className="flex items-center justify-center gap-3">
               <Loader2 className="h-5 w-5 text-white/40 animate-spin" />
-              <span>Searching database...</span>
-            </div>
-          )}
-          {searchStatus === 'searching-spotify' && (
-            <div className="flex items-center justify-center gap-3">
-              <Loader2 className="h-5 w-5 text-blue-400 animate-spin" />
-              <span>Searching Spotify...</span>
+              <span>Searching...</span>
             </div>
           )}
           {searchStatus === 'no-results' && (
@@ -97,12 +72,7 @@ export function SearchResults({
                   {result.artist_name}
                 </p>
                 <p className="text-xs text-white/40">
-                  {formatReleaseDate(result.release_date)}
-                  {searchSource === 'spotify' && (
-                    <span className="ml-2 px-1.5 py-0.5 bg-blue-500/20 text-blue-400 rounded-full text-xxs">
-                      Spotify
-                    </span>
-                  )}
+                  {formatDate(result.release_date)}
                 </p>
               </div>
             </div>
@@ -111,4 +81,4 @@ export function SearchResults({
       )}
     </div>
   );
-}
+};

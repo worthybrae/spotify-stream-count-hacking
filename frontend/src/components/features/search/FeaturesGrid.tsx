@@ -1,4 +1,4 @@
-// components/dashboard/FeaturesGrid.tsx
+import React from 'react';
 import { Card } from '@/components/ui/card';
 import { TrendingUp, BarChart3, Database, Clock } from 'lucide-react';
 
@@ -29,7 +29,7 @@ interface FeaturesGridProps {
   isVisible: boolean;
 }
 
-export function FeaturesGrid({ isVisible }: FeaturesGridProps) {
+export const FeaturesGrid: React.FC<FeaturesGridProps> = ({ isVisible }) => {
   return (
     <div className={`
       grid grid-cols-2 gap-3 absolute w-full
@@ -55,4 +55,4 @@ export function FeaturesGrid({ isVisible }: FeaturesGridProps) {
       ))}
     </div>
   );
-}
+};
