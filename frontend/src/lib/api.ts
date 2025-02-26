@@ -37,7 +37,8 @@ export const getAlbumData = async (albumId: string): Promise<{
   total_streams: number;
 }> => {
   try {
-    const response = await api.get(`/album/${albumId}`);
+    // Updated endpoint path from /album/{id} to /albums/{id}
+    const response = await api.get(`/albums/${albumId}`);
     console.log('Album data response:', response.data);
     return response.data;
   } catch (error) {
@@ -59,7 +60,8 @@ export const saveAlbumData = async (
       streamHistory
     };
     
-    const response = await api.post('/album', requestData);
+    // Updated endpoint path from /album to /albums
+    const response = await api.post('/albums', requestData);
     return response.data;
   } catch (error) {
     console.error('Failed to save album data:', error);
@@ -83,6 +85,7 @@ export const addStreamCounts = async (albumId: string, streams: StreamCount[]): 
       streams
     };
     
+    // This endpoint path remains the same
     const response = await api.post('/streams', requestData);
     return response.data;
   } catch (error) {
@@ -94,6 +97,7 @@ export const addStreamCounts = async (albumId: string, streams: StreamCount[]): 
 // Get all albums (paginated)
 export const getAllAlbums = async (limit: number = 50, offset: number = 0): Promise<SearchResult[]> => {
   try {
+    // This endpoint path remains the same
     const response = await api.get('/albums', {
       params: { limit, offset }
     });

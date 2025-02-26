@@ -1,4 +1,4 @@
-# backend/official_spotify.py
+# services/official_spotify.py
 from typing import List
 import spotipy
 from spotipy.oauth2 import SpotifyClientCredentials
@@ -6,32 +6,20 @@ from config import settings
 from models import NewRelease
 from datetime import datetime
 
-class SpotifyOfficial:
+
+class OfficialSpotifyService:
+    """
+    Service for interacting with the official Spotify API
+    using spotipy library
+    """
+    
     def __init__(self):
+        """Initialize the Spotify client with credentials"""
         auth_manager = SpotifyClientCredentials(
             client_id=settings.SPOTIFY_CLIENT_ID,
             client_secret=settings.SPOTIFY_CLIENT_SECRET
         )
         self.client = spotipy.Spotify(auth_manager=auth_manager)
-    
-    async def get_new_releases(self, limit: int = 50) -> List[NewRelease]:
-        response = self.client.new_releases(limit=limit)
-        releases = []
-        
-        for album in response['albums']['items']:
-            # Parse the release date from Spotify's format
-            release_date = datetime.strptime(album['release_date'], '%Y-%m-%d').date()
-            
-            releases.append(NewRelease(
-                album_id=album['id'],
-                album_name=album['name'],
-                cover_art=album['images'][0]['url'] if album['images'] else '',
-                artist_name=album['artists'][0]['name'],
-                artist_id=album['artists'][0]['id'],
-                release_date=release_date
-            ))
-        
-        return releases
     
     async def search_albums(self, query: str, limit: int = 50) -> List[NewRelease]:
         """
@@ -42,7 +30,7 @@ class SpotifyOfficial:
             limit: Maximum number of results to return (default: 20)
             
         Returns:
-            List of album details matching the search query
+            List of NewRelease objects matching the search query
         """
         # Use spotipy's search method with 'album' type
         result = self.client.search(q=query, type='album', limit=limit)
@@ -68,3 +56,27 @@ class SpotifyOfficial:
             ))
         
         return albums
+        
+    async def get_album(self, album_id: str) -> dict:
+        """
+        Get album details from Spotify
+        
+        Args:
+            album_id: Spotify album ID
+            
+        Returns:
+            Dict with album details
+        """
+        return self.client.album(album_id)
+        
+    async def get_track(self, track_id: str) -> dict:
+        """
+        Get track details from Spotify
+        
+        Args:
+            track_id: Spotify track ID
+            
+        Returns:
+            Dict with track details
+        """
+        return self.client.track(track_id)

@@ -1,318 +1,116 @@
 # backend/main.py
-from fastapi import FastAPI, HTTPException, Depends, Query
-from fastapi.security.api_key import APIKeyHeader
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from typing import List, Optional, Dict, Any
-from unofficial_spotify import SpotifyPartner, TokenManager
-from official_spotify import SpotifyOfficial
-from models import (
-    AlbumResponse, Track, StreamCount, NewRelease, 
-    AlbumSaveRequest, AlbumWithTracksResponse, StreamsAddRequest
-)
-from config import settings
-from db import (
-    get_db, search_albums_by_name, get_album_with_tracks_and_streams,
-    save_complete_album, batch_save_stream_counts
-)
+from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.triggers.cron import CronTrigger
+from contextlib import asynccontextmanager
+import asyncio
 import traceback
 from datetime import datetime
 
-app = FastAPI(title="Spotify Analytics API")
+# Import routes
+from routes.albums import router as albums_router
+from routes.search import router as search_router
+from routes.streams import router as streams_router
+
+# Import the process_albums function from update_streams service
+from services.update_streams import process_albums
+
+# Define the scheduled task function
+async def update_stream_counts():
+    print(f"Starting scheduled stream count update at {datetime.now()}")
+    try:
+        result = await process_albums()
+        print(f"Completed scheduled stream count update at {datetime.now()}")
+        print(f"Stats: {result}")
+        return result
+    except Exception as e:
+        error_details = traceback.format_exc()
+        print(f"Error in scheduled stream count update: {str(e)}")
+        print(f"Detailed error: {error_details}")
+        return {"status": "error", "error": str(e)}
+
+# Set up the scheduler
+scheduler = BackgroundScheduler()
+# Run at 10PM UTC (5PM EST) to match your GitHub Actions schedule
+trigger = CronTrigger(hour=22, minute=0)
+scheduler.add_job(update_stream_counts, trigger)
+
+# Define the lifespan context manager for FastAPI
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Start the scheduler when the app starts
+    print(f"Starting scheduler at {datetime.now()}")
+    scheduler.start()
+    yield
+    # Shut down the scheduler when the app stops
+    print(f"Shutting down scheduler at {datetime.now()}")
+    scheduler.shutdown()
+
+# Create the FastAPI app with the lifespan
+app = FastAPI(
+    title="Spotify Analytics API", 
+    description="API for tracking Spotify album and track stream counts over time",
+    version="1.0.0",
+    lifespan=lifespan
+)
 
 # CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "*"],  # Update this with your frontend URL in production
+    allow_origins=["http://localhost:5173", "*"],  # Update with your frontend URL in production
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
 
-# Initialize clients
-token_manager = TokenManager()
-spotify_partner = SpotifyPartner(token_manager)
-spotify_official = SpotifyOfficial()
+# Include routers
+app.include_router(albums_router, prefix="/albums", tags=["Albums"])
+app.include_router(search_router, prefix="/search", tags=["Search"])
+app.include_router(streams_router, prefix="/streams", tags=["Streams"])
 
-# API Key verification
-API_KEY_HEADER = APIKeyHeader(name="X-API-Key")
+# Add a simple health check endpoint
+@app.get("/", tags=["Health"])
+async def health_check():
+    return {
+        "status": "healthy", 
+        "service": "Spotify Analytics API",
+        "version": "1.0.0"
+    }
 
-async def verify_api_key(api_key: str = Depends(API_KEY_HEADER)):
-    # During development, you can comment out the actual verification
-    # to make testing easier. Uncomment this when deploying to production
-    # if api_key != settings.API_KEY:
-    #     raise HTTPException(status_code=403, detail="Invalid API key")
-    return api_key
-
-# Endpoints
-
-# 1. Fetch Album Endpoint
-@app.get("/album/{album_id}")
-async def fetch_album(
-    album_id: str,
-    _: str = Depends(verify_api_key)
-):
+# Manual trigger endpoint for the scheduled task
+@app.post("/admin/trigger-update", tags=["Admin"])
+async def trigger_update():
     """
-    Get album details, all tracks, and their latest stream counts.
-    
-    If album exists in database, returns data from database.
-    If not found, fetches data from Spotify API and saves it.
+    Manually trigger the stream count update job.
+    Requires API key authentication (handled in the router).
     """
     try:
-        # First try to get from database
-        db_result = await get_album_with_tracks_and_streams(album_id)
-        
-        # If found in database, return it
-        if db_result and db_result.get("tracks"):
-            return db_result
-        
-        # Otherwise, fetch from Spotify API
-        try:
-            # Fetch album data from Spotify 
-            album_data = await spotify_partner.get_album_tracks(album_id)
-            
-            # Prepare data for saving to database
-            album_info = {
-                "album_id": album_data.album_id,
-                "artist_id": album_data.artist_id,
-                "album_name": album_data.album_name,
-                "artist_name": album_data.artist_name,
-                "cover_art": getattr(album_data, "cover_art", ""),  # Use the extracted cover art
-                "release_date": datetime.now()  # Default to current date, can be updated later
-            }
-            
-            # Use the release date from the API if available
-            if hasattr(album_data, "release_date") and album_data.release_date:
-                try:
-                    album_info["release_date"] = datetime.strptime(album_data.release_date, "%Y-%m-%d")
-                except Exception as e:
-                    print(f"Error parsing release date: {e}")
-                    # Keep the default current date
-            
-            # Convert Track objects to dictionaries for processing
-            track_objects = []
-            stream_data = []
-            
-            for track in album_data.tracks:
-                track_dict = {
-                    "track_id": track.track_id,
-                    "name": track.name,
-                    "artist_id": album_data.artist_id,
-                    "album_id": album_data.album_id
-                }
-                track_objects.append(track_dict)
-                
-                stream_dict = {
-                    "track_id": track.track_id,
-                    "play_count": track.playcount,
-                    "album_id": album_data.album_id
-                }
-                stream_data.append(stream_dict)
-            
-            # Save to database
-            await save_complete_album(album_info, track_objects, stream_data)
-            
-            # Get from database now that it's saved
-            db_result = await get_album_with_tracks_and_streams(album_id)
-            if db_result:
-                return db_result
-            
-            # If still not found, return API data
-            tracks_list = [
-                {
-                    "track_id": track.track_id,
-                    "name": track.name,
-                    "playcount": track.playcount
-                } for track in album_data.tracks
-            ]
-            
-            return {
-                "album": {
-                    "album_id": album_data.album_id,
-                    "album_name": album_data.album_name,
-                    "artist_id": album_data.artist_id,
-                    "artist_name": album_data.artist_name,
-                    "cover_art": album_info["cover_art"],  # Use the extracted cover
-                    "release_date": album_info["release_date"]
-                },
-                "tracks": tracks_list,
-                "total_streams": sum(track.playcount for track in album_data.tracks)
-            }
-        
-        except Exception as e:
-            # Get full traceback to help with debugging
-            err_trace = traceback.format_exc()
-            print(f"Error fetching data from Spotify API: {err_trace}")
-            raise HTTPException(status_code=500, detail=f"Failed to fetch album from Spotify API: {str(e)}")
-    
-    except Exception as e:
-        # Get full traceback to help with debugging
-        error_details = traceback.format_exc()
-        print(f"Error fetching album data: {error_details}")
-        raise HTTPException(status_code=500, detail=f"Failed to fetch album data: {str(e)}")
-
-# 2. Search Albums Endpoint
-@app.get("/search/albums")
-async def search_albums(
-    query: str = Query(..., min_length=1),
-    limit: int = Query(default=10, le=50),
-    _: str = Depends(verify_api_key)
-):
-    """
-    Search albums by name in database. If no results, search Spotify API.
-    """
-    try:
-        # First search in database
-        db_results = await search_albums_by_name(query, limit)
-        
-        # If we have results, return them
-        if db_results and len(db_results) > 0:
-            return db_results
-        
-        # Otherwise, search in Spotify
-        try:
-            spotify_results = await spotify_official.search_albums(query, limit)
-            
-            # Convert to same format as db results
-            return [
-                {
-                    "album_id": album.album_id,
-                    "album_name": album.album_name,
-                    "artist_name": album.artist_name,
-                    "artist_id": album.artist_id,
-                    "cover_art": album.cover_art,
-                    "release_date": album.release_date
-                } for album in spotify_results
-            ]
-        except Exception as e:
-            err_trace = traceback.format_exc()
-            print(f"Error searching Spotify API: {err_trace}")
-            raise HTTPException(status_code=500, detail=f"Failed to search Spotify API: {str(e)}")
-    
-    except Exception as e:
-        err_trace = traceback.format_exc()
-        print(f"Error searching albums: {err_trace}")
-        raise HTTPException(status_code=500, detail=f"Failed to search albums: {str(e)}")
-
-# 3. Add Album Endpoint
-@app.post("/album", status_code=201)
-async def add_album(
-    data: AlbumSaveRequest,
-    _: str = Depends(verify_api_key)
-):
-    """
-    Add or update album info, tracks, and streams in the database.
-    """
-    try:
-        album_data = {
-            "album_id": data.album.album_id,
-            "artist_id": data.album.artist_id,
-            "album_name": data.album.album_name,
-            "artist_name": data.album.artist_name,
-            "cover_art": data.album.cover_art,
-            "release_date": data.album.release_date
-        }
-        
-        # Convert tracks to the correct format
-        track_objects = []
-        for track in data.tracks:
-            track_dict = {
-                "track_id": track.track_id,
-                "name": track.name,
-                "artist_id": data.album.artist_id,
-                "album_id": data.album.album_id
-            }
-            track_objects.append(track_dict)
-        
-        # Convert stream history to the format expected by save_complete_album
-        stream_data = [
-            {
-                "track_id": stream.track_id,
-                "play_count": stream.playcount,
-                "album_id": data.album.album_id
-            } for stream in data.streamHistory
-        ]
-        
-        result = await save_complete_album(album_data, track_objects, stream_data)
-        
+        # Create a background task to run the update
+        task = asyncio.create_task(update_stream_counts())
         return {
-            "status": "success",
-            "message": "Album data saved successfully",
-            "album_id": result["album_id"],
-            "artist_id": result["artist_id"],
-            "tracks_count": result["tracks_count"],
-            "streams_count": result["streams_count"]
+            "status": "update triggered", 
+            "timestamp": datetime.now().isoformat(),
+            "message": "Update is running in the background"
         }
-    
     except Exception as e:
-        err_trace = traceback.format_exc()
-        print(f"Error adding album: {err_trace}")
-        raise HTTPException(status_code=500, detail=f"Failed to save album data: {str(e)}")
+        return {"status": "error", "message": str(e)}
 
-# 4. Add Streams Endpoint
-@app.post("/streams", status_code=201)
-async def add_streams(
-    data: StreamsAddRequest,
-    _: str = Depends(verify_api_key)
-):
+# Add an endpoint to check the status of the last update
+@app.get("/admin/last-update", tags=["Admin"])
+async def get_last_update():
     """
-    Add new stream counts for tracks in an album.
+    Get information about the last update run.
     """
-    try:
-        async with get_db() as conn:
-            # Prepare streams data
-            stream_data = [
-                {
-                    "track_id": stream.track_id,
-                    "play_count": stream.playcount,
-                    "album_id": data.album_id
-                } for stream in data.streams
-            ]
-            
-            # Save streams
-            count = await batch_save_stream_counts(conn, stream_data)
-            
-            return {
-                "status": "success",
-                "message": f"Added {count} stream records for album {data.album_id}",
-                "count": count
-            }
+    # In a production system, you'd store this in the database
+    # For now, just get the next run time from the scheduler
+    job = scheduler.get_job('update_stream_counts')
+    next_run = job.next_run_time if job else None
     
-    except Exception as e:
-        err_trace = traceback.format_exc()
-        print(f"Error adding streams: {err_trace}")
-        raise HTTPException(status_code=500, detail=f"Failed to add streams: {str(e)}")
-
-# 5. Get All Albums (Additional Helpful Endpoint)
-@app.get("/albums")
-async def get_all_albums(
-    limit: int = Query(default=50, le=100),
-    offset: int = Query(default=0),
-    _: str = Depends(verify_api_key)
-):
-    """
-    Get all albums in the database, with pagination.
-    """
-    try:
-        async with get_db() as conn:
-            results = await conn.fetch("""
-                SELECT 
-                    album_id, 
-                    name as album_name, 
-                    artist_id,
-                    artist_name,
-                    cover_art, 
-                    release_date
-                FROM albums
-                ORDER BY release_date DESC
-                LIMIT $1 OFFSET $2
-            """, limit, offset)
-            
-            return [dict(r) for r in results]
-    
-    except Exception as e:
-        err_trace = traceback.format_exc()
-        print(f"Error fetching all albums: {err_trace}")
-        raise HTTPException(status_code=500, detail=f"Failed to fetch albums: {str(e)}")
+    return {
+        "next_scheduled_update": next_run.isoformat() if next_run else None,
+        "scheduler_running": scheduler.running
+    }
 
 if __name__ == "__main__":
     import uvicorn

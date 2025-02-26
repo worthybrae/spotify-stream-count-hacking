@@ -1,4 +1,4 @@
-# backend/spotify_partner.py
+# services/unofficial_spotify.py
 from typing import Dict, Tuple
 import httpx
 import json
@@ -10,7 +10,11 @@ import platform
 import uuid
 import re
 
+
 class TokenManager:
+    """
+    Manages authentication tokens for the unofficial Spotify API
+    """
     def __init__(self):
         self.client_token = None
         self.bearer_token = None
@@ -20,10 +24,16 @@ class TokenManager:
         self.client = httpx.AsyncClient()
         
     def _generate_device_id(self) -> str:
+        """Generate a random device ID"""
         return uuid.uuid4().hex
     
     async def _fetch_bearer_token(self) -> Tuple[str, int]:
-        """Fetch Bearer token from album page"""
+        """
+        Fetch Bearer token from album page
+        
+        Returns:
+            Tuple of (token, expiry_timestamp)
+        """
         url = "https://open.spotify.com/album/0HFmXICO7WgVoqLAXc7Rhw"
         
         headers = {
@@ -96,7 +106,12 @@ class TokenManager:
             )
 
     async def get_tokens(self) -> Tuple[str, str]:
-        """Get valid client and bearer tokens, refreshing if necessary"""
+        """
+        Get valid client and bearer tokens, refreshing if necessary
+        
+        Returns:
+            Tuple of (client_token, bearer_token)
+        """
         current_time = time.time()
         
         if not self.client_token or current_time >= self.token_refresh:
@@ -107,7 +122,12 @@ class TokenManager:
         
         return self.client_token, self.bearer_token
 
-class SpotifyPartner:
+
+class UnofficialSpotifyService:
+    """
+    Service for interacting with Spotify's unofficial partner API
+    to get additional data not available in the official API
+    """
     def __init__(self, token_manager: TokenManager):
         self.base_url = "https://api-partner.spotify.com/pathfinder/v1/query"
         self.token_manager = token_manager
@@ -150,7 +170,15 @@ class SpotifyPartner:
         return f"{self.base_url}?{params}"
 
     async def get_album_tracks(self, album_id: str) -> AlbumResponse:
-        """Get track details for an album including play counts"""
+        """
+        Get track details for an album including play counts
+        
+        Args:
+            album_id: Spotify album ID
+            
+        Returns:
+            AlbumResponse object with album and track details including play counts
+        """
         url = self._build_album_query(album_id)
         headers = await self._get_headers()
         
@@ -216,7 +244,15 @@ class SpotifyPartner:
             )
 
     async def get_track_info(self, track_id: str) -> Dict:
-        """Get individual track information including play count"""
+        """
+        Get individual track information including play count
+        
+        Args:
+            track_id: Spotify track ID
+            
+        Returns:
+            Dict with track details including play count
+        """
         variables = {
             "uri": f"spotify:track:{track_id}",
             "locale": "",
