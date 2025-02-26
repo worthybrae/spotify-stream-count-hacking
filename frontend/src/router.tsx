@@ -3,12 +3,23 @@ import HomePage from './pages/HomePage';
 import { AboutPage } from './pages/AboutPage';
 import { ApiPage } from './pages/ApiPage';
 import MainLayout from './components/layout/MainLayout';
+import RouteTracker from './components/utils/RouteTracker';
+
+// Route tracker component for use inside MainLayout
+const LayoutWithAnalytics = () => {
+  return (
+    <>
+      <RouteTracker />
+      <MainLayout />
+    </>
+  );
+};
 
 // Define all application routes here
 const router = createBrowserRouter([
   {
     path: '/',
-    element: <MainLayout />,
+    element: <LayoutWithAnalytics />,
     children: [
       {
         index: true,
