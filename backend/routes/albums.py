@@ -1,6 +1,5 @@
 # routes/albums.py
 from fastapi import APIRouter, HTTPException, Depends, Query
-from typing import List, Dict, Any
 import traceback
 from datetime import datetime
 
@@ -18,105 +17,148 @@ async def fetch_album(
     Get album details, all tracks, and their latest stream counts.
     
     If album exists in database, returns data from database.
-    If not found, fetches data from Spotify API and saves it.
+    If not found, tries to fetch data from unofficial Spotify API.
+    If unofficial API fails, falls back to official Spotify API with limited data.
     """
+    # Get services
+    db_service = get_database_service()
+    spotify_services = get_spotify_services()
+    unofficial_spotify = spotify_services["unofficial"]
+    official_spotify = spotify_services["official"]
+    
+    # First try to get from database
     try:
-        # Get services
-        db_service = get_database_service()
-        spotify_services = get_spotify_services()
-        unofficial_spotify = spotify_services["unofficial"]
-        
-        # First try to get from database
         db_result = await db_service.get_album_with_tracks_and_streams(album_id)
         
-        # If found in database, return it
+        # If found in database with tracks, return it
         if db_result and db_result.get("tracks"):
             return db_result
+    except Exception as db_error:
+        print(f"Error fetching album from database: {str(db_error)}")
+        # Continue to API attempt
+    
+    # Try unofficial API first
+    try:
+        # Fetch album data from unofficial Spotify API
+        album_data = await unofficial_spotify.get_album_tracks(album_id)
         
-        # Otherwise, fetch from Spotify API
-        try:
-            # Fetch album data from Spotify 
-            album_data = await unofficial_spotify.get_album_tracks(album_id)
-            
-            # Prepare data for saving to database
-            album_info = {
-                "album_id": album_data.album_id,
+        # Process and save the data...
+        album_info = {
+            "album_id": album_data.album_id,
+            "artist_id": album_data.artist_id,
+            "album_name": album_data.album_name,
+            "artist_name": album_data.artist_name,
+            "cover_art": getattr(album_data, "cover_art", ""),
+            "release_date": datetime.now()  # Default to current date, can be updated later
+        }
+        
+        # Use the release date from the API if available
+        if hasattr(album_data, "release_date") and album_data.release_date:
+            try:
+                album_info["release_date"] = datetime.strptime(album_data.release_date, "%Y-%m-%d")
+            except Exception as e:
+                print(f"Error parsing release date: {e}")
+        
+        # Convert Track objects to dictionaries for processing
+        track_objects = []
+        stream_data = []
+        
+        for track in album_data.tracks:
+            track_dict = {
+                "track_id": track.track_id,
+                "name": track.name,
                 "artist_id": album_data.artist_id,
-                "album_name": album_data.album_name,
-                "artist_name": album_data.artist_name,
-                "cover_art": getattr(album_data, "cover_art", ""),
-                "release_date": datetime.now()  # Default to current date, can be updated later
+                "album_id": album_data.album_id
             }
+            track_objects.append(track_dict)
             
-            # Use the release date from the API if available
-            if hasattr(album_data, "release_date") and album_data.release_date:
-                try:
-                    album_info["release_date"] = datetime.strptime(album_data.release_date, "%Y-%m-%d")
-                except Exception as e:
-                    print(f"Error parsing release date: {e}")
-                    # Keep the default current date
-            
-            # Convert Track objects to dictionaries for processing
-            track_objects = []
-            stream_data = []
-            
-            for track in album_data.tracks:
-                track_dict = {
-                    "track_id": track.track_id,
-                    "name": track.name,
-                    "artist_id": album_data.artist_id,
-                    "album_id": album_data.album_id
-                }
-                track_objects.append(track_dict)
-                
-                stream_dict = {
-                    "track_id": track.track_id,
-                    "play_count": track.playcount,
-                    "album_id": album_data.album_id
-                }
-                stream_data.append(stream_dict)
-            
-            # Save to database
+            stream_dict = {
+                "track_id": track.track_id,
+                "play_count": track.playcount,
+                "album_id": album_data.album_id
+            }
+            stream_data.append(stream_dict)
+        
+        # Save to database
+        try:
             await db_service.save_complete_album(album_info, track_objects, stream_data)
             
             # Get from database now that it's saved
             db_result = await db_service.get_album_with_tracks_and_streams(album_id)
             if db_result:
                 return db_result
-            
-            # If still not found, return API data
-            tracks_list = [
-                {
-                    "track_id": track.track_id,
-                    "name": track.name,
-                    "playcount": track.playcount
-                } for track in album_data.tracks
-            ]
-            
-            return {
-                "album": {
-                    "album_id": album_data.album_id,
-                    "album_name": album_data.album_name,
-                    "artist_id": album_data.artist_id,
-                    "artist_name": album_data.artist_name,
-                    "cover_art": album_info["cover_art"],
-                    "release_date": album_info["release_date"]
-                },
-                "tracks": tracks_list,
-                "total_streams": sum(track.playcount for track in album_data.tracks)
-            }
+        except Exception as save_error:
+            print(f"Error saving album data to database: {str(save_error)}")
+            # Continue with returning data from API
         
-        except Exception as e:
-            # Get full traceback to help with debugging
-            err_trace = traceback.format_exc()
-            print(f"Error fetching data from Spotify API: {err_trace}")
-            raise HTTPException(status_code=500, detail=f"Failed to fetch album from Spotify API: {str(e)}")
+        # If database save/fetch failed, return API data directly
+        tracks_list = [
+            {
+                "track_id": track.track_id,
+                "name": track.name,
+                "playcount": track.playcount
+            } for track in album_data.tracks
+        ]
+        
+        return {
+            "album": {
+                "album_id": album_data.album_id,
+                "album_name": album_data.album_name,
+                "artist_id": album_data.artist_id,
+                "artist_name": album_data.artist_name,
+                "cover_art": album_info["cover_art"],
+                "release_date": album_info["release_date"]
+            },
+            "tracks": tracks_list,
+            "total_streams": sum(track.playcount for track in album_data.tracks)
+        }
     
-    except Exception as e:
-        # Get full traceback to help with debugging
-        error_details = traceback.format_exc()
-        print(f"Error fetching album data: {error_details}")
-        raise HTTPException(status_code=500, detail=f"Failed to fetch album data: {str(e)}")
+    except Exception as unofficial_error:
+        print(f"Error with unofficial API: {str(unofficial_error)}")
+        # Fall back to official API
+    
+    # Try using official Spotify API as last resort (won't have play counts)
+    try:
+        print(f"Falling back to official Spotify API for album {album_id}")
+        official_album = await official_spotify.get_album(album_id)
+        
+        # Create a response with the data we have (no play counts)
+        album_info = {
+            "album_id": official_album["id"],
+            "album_name": official_album["name"],
+            "artist_id": official_album["artists"][0]["id"],
+            "artist_name": official_album["artists"][0]["name"],
+            "cover_art": official_album["images"][0]["url"] if official_album.get("images") else "",
+            "release_date": datetime.strptime(official_album["release_date"], "%Y-%m-%d") 
+                if len(official_album.get("release_date", "")) == 10 
+                else datetime.now()
+        }
+        
+        # Get tracks from the official API
+        tracks_list = []
+        for item in official_album["tracks"]["items"]:
+            track_dict = {
+                "track_id": item["id"],
+                "name": item["name"],
+                "playcount": 0  # We don't have play counts from official API
+            }
+            tracks_list.append(track_dict)
+        
+        # Don't try to save to database since we don't have complete data
+        
+        return {
+            "album": album_info,
+            "tracks": tracks_list,
+            "total_streams": 0,
+            "note": "Data fetched from official Spotify API. Stream counts unavailable."
+        }
+    
+    except Exception as official_error:
+        # Both APIs failed
+        detailed_error = f"Failed to fetch album data from both unofficial and official APIs.\n" \
+                         f"Unofficial API error: {str(unofficial_error)}\n" \
+                         f"Official API error: {str(official_error)}"
+        raise HTTPException(status_code=500, detail=detailed_error)
 
 @router.post("/", status_code=201)
 async def add_album(

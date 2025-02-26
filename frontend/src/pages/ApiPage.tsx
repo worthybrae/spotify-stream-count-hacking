@@ -1,54 +1,92 @@
 import { Card } from '@/components/ui/card';
-import { Database } from 'lucide-react';
+import { Database, Code, Server, Zap } from 'lucide-react';
 
 export function ApiPage() {
   return (
-    <div className="min-h-screen bg-black text-white">
-      {/* Header is now in App.tsx */}
-      
-      {/* Main Content */}
-      <main className="container mx-auto px-4 min-h-screen pt-14">
-        <div className="w-full max-w-4xl mx-auto py-16">
+    <div className="relative min-h-screen">
+      <main className="container mx-auto px-4 min-h-screen pt-24 pb-16">
+        <div className="w-full max-w-5xl mx-auto">
           <div className="space-y-6 mb-12">
-            <h1 className="text-7xl font-bold text-white">API Coming Soon</h1>
-            <p className="text-xl text-white/60 max-w-2xl">
-              Get programmatic access to streaming data through our powerful API.
+            <h1 className="text-5xl md:text-7xl font-bold text-white">api access</h1>
+            <p className="text-xl text-white/80 max-w-3xl">
+              programmatic access to Spotify's streaming data is coming soon
             </p>
           </div>
 
-          <Card className="p-8 bg-white/5 border-white/10 text-center">
-            <div className="relative w-24 h-24 mx-auto mb-8">
-              <div className="absolute inset-0 bg-blue-500/20 rounded-full animate-ping" />
-              <div className="absolute inset-0 bg-purple-500/20 rounded-full animate-ping delay-200" />
-              <div className="absolute inset-0 bg-pink-500/20 rounded-full animate-ping delay-400" />
-              <Database className="relative w-full h-full text-white" />
+          {/* Main API card */}
+          <Card className="p-6 md:p-10 bg-white/5 backdrop-blur-md border-white/10 shadow-xl">
+            <div className="text-center mb-12">
+              <div className="relative w-24 h-24 mx-auto mb-8">
+                <div className="absolute inset-0 bg-blue-500/20 rounded-full animate-ping" style={{ animationDuration: '3s' }} />
+                <div className="absolute inset-0 bg-purple-500/20 rounded-full animate-ping" style={{ animationDuration: '3s', animationDelay: '1s' }} />
+                <div className="absolute inset-0 bg-pink-500/20 rounded-full animate-ping" style={{ animationDuration: '3s', animationDelay: '2s' }} />
+                <Server className="my-4 relative w-full h-full text-white p-5" />
+              </div>
+
+              <h2 className="text-2xl font-bold text-white mb-4">Access Spotify Data Programmatically</h2>
+              <p className="text-lg text-white/80 max-w-2xl mx-auto">
+                Our developer API is currently under development. Soon you'll be able to integrate
+                Spotify's internal streaming data directly into your applications.
+              </p>
             </div>
 
-            <p className="text-lg text-white/80 max-w-xl mx-auto">
-              Our API is currently under development
-            </p>
+            {/* API Features */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 my-12">
+              <div className="flex items-start gap-5 p-6 bg-white/5 hover:bg-white/10 transition-all rounded-xl border border-white/10">
+                <div className="bg-gradient-to-br from-blue-500/30 to-purple-500/30 p-3 rounded-lg">
+                  <Database className="h-6 w-6 text-blue-300" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-lg text-white mb-2">Real-Time Data</h3>
+                  <p className="text-base text-white/70">
+                    Access Spotify's internal streaming data with daily updates via simple REST endpoints
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-5 p-6 bg-white/5 hover:bg-white/10 transition-all rounded-xl border border-white/10">
+                <div className="bg-gradient-to-br from-purple-500/30 to-pink-500/30 p-3 rounded-lg">
+                  <Code className="h-6 w-6 text-purple-300" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-lg mb-2 text-white">Simple Integration</h3>
+                  <p className="text-base text-white/70">
+                    Well-documented API with client libraries for JavaScript, Python, and more
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-5 p-6 bg-white/5 hover:bg-white/10 transition-all rounded-xl border border-white/10">
+                <div className="bg-gradient-to-br from-pink-500/30 to-orange-500/30 p-3 rounded-lg">
+                  <Zap className="h-6 w-6 text-pink-300" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-lg mb-2 text-white">High Performance</h3>
+                  <p className="text-base text-white/70">
+                    Optimized for speed with global CDN distribution and caching
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-5 p-6 bg-white/5 hover:bg-white/10 transition-all rounded-xl border border-white/10">
+                <div className="bg-gradient-to-br from-orange-500/30 to-yellow-500/30 p-3 rounded-lg">
+                  <Server className="h-6 w-6 text-orange-300" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-lg text-white mb-2">Reliable Infrastructure</h3>
+                  <p className="text-base text-white/70">
+                    Built on enterprise-grade cloud infrastructure with 99.9% uptime SLA
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            
           </Card>
         </div>
       </main>
-
-      {/* Background Effect */}
-      <div className="fixed inset-0 pointer-events-none -z-10">
-        <svg className="absolute w-full h-full opacity-10" viewBox="0 0 1000 1000">
-          <path
-            d="M0,500 Q250,400 500,500 T1000,500"
-            fill="none"
-            stroke="url(#gradient)"
-            strokeWidth="1"
-            className="animate-flow"
-          />
-          <defs>
-            <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" stopColor="#4F46E5" />
-              <stop offset="100%" stopColor="#7C3AED" />
-            </linearGradient>
-          </defs>
-        </svg>
-      </div>
     </div>
   );
 }
+
+export default ApiPage;

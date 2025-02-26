@@ -30,11 +30,25 @@ async def update_stream_counts():
         print(f"Detailed error: {error_details}")
         return {"status": "error", "error": str(e)}
 
+# Non-async wrapper function for the scheduler
+def run_update_stream_counts():
+    """
+    Creates a new event loop to run our async function in a synchronous context.
+    This is needed because APScheduler doesn't natively support coroutines.
+    """
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    try:
+        return loop.run_until_complete(update_stream_counts())
+    finally:
+        loop.close()
+
 # Set up the scheduler
 scheduler = BackgroundScheduler()
 # Run at 10PM UTC (5PM EST) to match your GitHub Actions schedule
 trigger = CronTrigger(hour=22, minute=0)
-scheduler.add_job(update_stream_counts, trigger)
+# Use the non-async wrapper instead of the coroutine directly
+scheduler.add_job(run_update_stream_counts, trigger, id='update_stream_counts')
 
 # Define the lifespan context manager for FastAPI
 @asynccontextmanager

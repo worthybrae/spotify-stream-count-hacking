@@ -30,17 +30,15 @@ interface FeaturesGridProps {
 }
 
 export const FeaturesGrid: React.FC<FeaturesGridProps> = ({ isVisible }) => {
+  if (!isVisible) return null;
+  
   return (
-    <div className={`
-      grid md:grid-cols-2 gap-3 absolute w-full
-      transition-all duration-500 transform grid-cols-1
-      ${isVisible ? 'opacity-100 scale-100' : 'opacity-0 scale-95 -translate-y-4 pointer-events-none'}
-    `}>
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full">
       {featuresData.map((feature, index) => (
         <Card 
           key={index}
           className="bg-white/5 hover:bg-white/10 border-white/5 p-4 
-                   transition-all duration-300 transform hover:scale-102"
+                  transition-all duration-300 transform hover:scale-102"
         >
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-lg bg-white/5">

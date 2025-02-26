@@ -34,11 +34,11 @@ const SearchSection: React.FC<SearchSectionProps> = ({
   };
 
   const showFeaturesGrid = !searchValue.trim() && !selectedAlbum;
-  const showSearchResults = Boolean(searchValue.trim() && !loading);
+  const showSearchResults = Boolean(searchValue.trim());
 
   return (
-    <div className="space-y-6">
-      {/* Search input - full width */}
+    <div className="w-full space-y-4">
+      {/* Search input */}
       <div className="w-full">
         <SearchInput 
           searchValue={searchValue}
@@ -47,22 +47,19 @@ const SearchSection: React.FC<SearchSectionProps> = ({
         />
       </div>
       
-      {/* Features grid below search */}
-      <div className="w-full">
-        <div className={`transition-all duration-500 transform ${showFeaturesGrid ? 'opacity-100 scale-100' : 'opacity-0 scale-95 -translate-y-4 pointer-events-none'}`}>
-          <FeaturesGrid isVisible={true} />
-        </div>
-      </div>
-
-      {/* Search results area */}
-      <div className="relative min-h-[100px]">
+      {/* Feature grid or search results */}
+      {showFeaturesGrid && (
+        <FeaturesGrid isVisible={true} />
+      )}
+      
+      {showSearchResults && (
         <SearchResults
-          isVisible={showSearchResults}
+          isVisible={true}
           results={results}
           searchStatus={searchStatus}
           onResultClick={handleResultSelect}
         />
-      </div>
+      )}
       
       <SearchStyles />
     </div>

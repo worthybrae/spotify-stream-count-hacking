@@ -26,27 +26,27 @@ const AlbumDetail: React.FC<AlbumDetailProps> = ({
   if (!selectedAlbum) return null;
 
   return (
-    <div className="space-y-6">
+    <div className="w-full overflow-auto" style={{ maxHeight: 'calc(100vh - 6rem)' }}>
       <button
         onClick={onBackToSearch}
-        className="flex items-center gap-2 text-white/60 hover:text-white transition-colors"
+        className="flex items-center gap-2 text-white/60 hover:text-white transition-colors mb-4"
       >
         <ArrowLeft className="w-4 h-4" />
         Back to Search
       </button>
 
       {error && (
-        <div className="bg-red-500/20 border border-red-500/30 p-4 rounded-lg text-red-300">
+        <div className="bg-red-500/20 border border-red-500/30 p-4 rounded-lg text-red-300 mb-4">
           {error}
         </div>
       )}
 
-      {/* Modified container with max-width constraint for mobile */}
-      <Card className="p-4 md:p-6 bg-black border-white/10 max-w-full overflow-hidden">
+      <Card className="p-4 md:p-6 bg-black/80 border-white/10">
         {/* Album Header with Performance Stats */}
         <AlbumHeader 
           album={selectedAlbum} 
           totalStreams={totalStreams} 
+          tracks={tracks}
         />
 
         {/* Loading state */}

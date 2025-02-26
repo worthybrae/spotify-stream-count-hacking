@@ -1,17 +1,21 @@
 import React, { useMemo } from 'react';
-import { Play, DollarSign, TrendingUp } from 'lucide-react';
+import { Play, DollarSign, TrendingUp, Download } from 'lucide-react';
 import { SearchResult } from '@/types/search';
+import { Track } from '@/types/api';
 import { formatNumber, formatDate, calculateRevenue, formatRevenue, calculateStreamsPerDay } from '@/lib/utils/formatters';
+import { downloadAlbumData } from '@/lib/utils/downloadUtils';
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { Button } from "@/components/ui/button";
 
 interface AlbumHeaderProps {
   album: SearchResult;
   totalStreams: number;
+  tracks: Track[];
 }
 
 // Reusable MetricBadge component with tooltip
@@ -46,7 +50,7 @@ const MetricBadge = ({
   </TooltipProvider>
 );
 
-const AlbumHeader: React.FC<AlbumHeaderProps> = ({ album, totalStreams }) => {
+const AlbumHeader: React.FC<AlbumHeaderProps> = ({ album, totalStreams, tracks }) => {
   // Calculate revenue from streams
   const totalRevenue = useMemo(() => 
     calculateRevenue(totalStreams), 
@@ -58,6 +62,16 @@ const AlbumHeader: React.FC<AlbumHeaderProps> = ({ album, totalStreams }) => {
     calculateStreamsPerDay(album.release_date, totalStreams),
     [album.release_date, totalStreams]
   );
+
+  // Handle download click
+  const handleDownload = () => {
+    downloadAlbumData(
+      album.album_name,
+      album.artist_name,
+      tracks,
+      new Date().toISOString()
+    );
+  };
 
   return (
     <div className="mb-6">
@@ -71,16 +85,29 @@ const AlbumHeader: React.FC<AlbumHeaderProps> = ({ album, totalStreams }) => {
             className="w-20 h-20 rounded-lg object-cover flex-shrink-0"
           />
           <div className="flex-1 min-w-0">
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <h2 className="text-xl font-bold text-white truncate max-w-full">{album.album_name}</h2>
-                </TooltipTrigger>
-                <TooltipContent side="top">
-                  <p className="text-xs whitespace-nowrap">{album.album_name}</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+            <div className="flex items-center justify-between">
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <h2 className="text-xl font-bold text-white truncate max-w-full">{album.album_name}</h2>
+                  </TooltipTrigger>
+                  <TooltipContent side="top">
+                    <p className="text-xs whitespace-nowrap">{album.album_name}</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              
+              {/* Download Button */}
+              <Button 
+                onClick={handleDownload}
+                variant="ghost" 
+                size="sm"
+                className="bg-white/10 hover:bg-white/100 text-white ml-2"
+              >
+                <Download className="h-2 w-2" />
+                Download Data
+              </Button>
+            </div>
             
             {/* Second Row: Artist and Stats */}
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 mt-1">
@@ -150,16 +177,18 @@ const AlbumHeader: React.FC<AlbumHeaderProps> = ({ album, totalStreams }) => {
             className="w-16 h-16 rounded-lg object-cover flex-shrink-0"
           />
           <div className="flex-1 min-w-0">
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <h2 className="text-lg font-bold text-white truncate">{album.album_name}</h2>
-                </TooltipTrigger>
-                <TooltipContent side="top">
-                  <p className="text-xs whitespace-nowrap">{album.album_name}</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+            <div className="flex items-center justify-between">
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <h2 className="text-lg font-bold text-white truncate">{album.album_name}</h2>
+                  </TooltipTrigger>
+                  <TooltipContent side="top">
+                    <p className="text-xs whitespace-nowrap">{album.album_name}</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -175,6 +204,17 @@ const AlbumHeader: React.FC<AlbumHeaderProps> = ({ album, totalStreams }) => {
             </p>
           </div>
         </div>
+        
+        {/* Download Button for Mobile */}
+        <Button 
+          onClick={handleDownload}
+          variant="ghost" 
+          size="sm"
+          className="mt-4 bg-white/10 hover:bg-white/20 text-white w-full"
+        >
+          <Download className="h-4 w-4 mr-2" />
+          Download Data
+        </Button>
         
         {/* Performance Stats - Match desktop style with dividers */}
         <div className="mt-4 bg-white/5 rounded-xl p-2">                                
