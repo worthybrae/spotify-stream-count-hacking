@@ -38,23 +38,30 @@ const SearchSection: React.FC<SearchSectionProps> = ({
 
   return (
     <div className="space-y-6">
-      <SearchInput 
-        searchValue={searchValue}
-        loading={loading}
-        onChange={handleSearchChange}
-      />
-
-<div className="relative min-h-[300px] max-h-[60vh]">
-        <FeaturesGrid isVisible={showFeaturesGrid} />
-        
-        <div className="relative pb-16">
-          <SearchResults
-            isVisible={showSearchResults}
-            results={results}
-            searchStatus={searchStatus}
-            onResultClick={handleResultSelect}
-          />
+      {/* Search input - full width */}
+      <div className="w-full">
+        <SearchInput 
+          searchValue={searchValue}
+          loading={loading}
+          onChange={handleSearchChange}
+        />
+      </div>
+      
+      {/* Features grid below search */}
+      <div className="w-full">
+        <div className={`transition-all duration-500 transform ${showFeaturesGrid ? 'opacity-100 scale-100' : 'opacity-0 scale-95 -translate-y-4 pointer-events-none'}`}>
+          <FeaturesGrid isVisible={true} />
         </div>
+      </div>
+
+      {/* Search results area */}
+      <div className="relative min-h-[100px]">
+        <SearchResults
+          isVisible={showSearchResults}
+          results={results}
+          searchStatus={searchStatus}
+          onResultClick={handleResultSelect}
+        />
       </div>
       
       <SearchStyles />

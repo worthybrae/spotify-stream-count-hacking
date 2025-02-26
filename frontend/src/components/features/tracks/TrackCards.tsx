@@ -4,6 +4,12 @@ import { Flame, Play, DollarSign, TrendingUp } from 'lucide-react';
 import { SearchResult } from '@/types/search';
 import { formatNumber, calculateRevenue, calculateStreamsPerDay } from '@/lib/utils/formatters';
 import { LineChart, Line, ResponsiveContainer } from 'recharts';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface TrackCardsProps {
     tracks: Track[];
@@ -19,16 +25,32 @@ interface StreamData {
 const MetricBadge = ({ 
   icon, 
   value, 
+  fullValue,
+  label,
   className = "" 
 }: { 
   icon: React.ReactNode, 
-  value: string, 
+  value: string,
+  fullValue?: string,
+  label?: string,
   className?: string 
 }) => (
-  <div className={`flex items-center gap-1 ${className}`}>
-    {icon}
-    <span className="text-sm font-medium">{value}</span>
-  </div>
+  <TooltipProvider>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <div className={`flex items-center gap-1 ${className}`}>
+          {icon}
+          <span className="text-sm font-medium">{value}</span>
+        </div>
+      </TooltipTrigger>
+      <TooltipContent side="top">
+        <p className="text-xs whitespace-nowrap">
+          {label && <span className="mr-1">{label}:</span>}
+          {fullValue || value}
+        </p>
+      </TooltipContent>
+    </Tooltip>
+  </TooltipProvider>
 );
 
 // Mini chart component
@@ -114,18 +136,22 @@ const TrackCards: React.FC<TrackCardsProps> = ({ tracks, selectedAlbum, onTrackS
               className="p-3 rounded-xl bg-white/5 hover:bg-white/8 transition-all cursor-pointer group"
               onClick={() => onTrackSelect?.(track)}
             >
-              {/* Desktop View (unchanged) */}
+              {/* Desktop View */}
               <div className="hidden md:flex items-center justify-between">
                 <div className="flex-1 min-w-0 mr-2">
                   <div className="flex items-center gap-2">
-                    <div className="truncate max-w-[160px] group relative hover-scroll">
-                      <p className="text-sm font-medium text-white truncate group-hover:text-clip">{track.name}</p>
-                      {track.name.length > 20 && (
-                        <div className="absolute left-0 top-0 hidden group-hover:block bg-black/80 rounded px-2 py-1 z-10 whitespace-nowrap max-w-xs">
-                          {track.name}
-                        </div>
-                      )}
-                    </div>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div className="truncate max-w-[160px]">
+                            <p className="text-sm font-medium text-white truncate">{track.name}</p>
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent side="top">
+                          <p className="text-xs whitespace-nowrap">{track.name}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
                     {isHot && <Flame className="h-5 w-5 text-orange-500 flex-shrink-0" />}
                   </div>
                   {/* Show artist name only */}
@@ -143,6 +169,8 @@ const TrackCards: React.FC<TrackCardsProps> = ({ tracks, selectedAlbum, onTrackS
                       <MetricBadge 
                         icon={<Play className="h-4 w-4 text-green-400" />}
                         value={formatNumber(track.playcount || 0)}
+                        fullValue={track.playcount?.toLocaleString() || '0'}
+                        label="Streams"
                       />
                     </div>
                     
@@ -152,6 +180,8 @@ const TrackCards: React.FC<TrackCardsProps> = ({ tracks, selectedAlbum, onTrackS
                       <MetricBadge 
                         icon={<DollarSign className="h-4 w-4 text-yellow-400" />}
                         value={formatNumber(revenue)}
+                        fullValue={`$${revenue.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`}
+                        label="Revenue"
                       />
                     </div>
                     
@@ -161,16 +191,27 @@ const TrackCards: React.FC<TrackCardsProps> = ({ tracks, selectedAlbum, onTrackS
                       <MetricBadge 
                         icon={<TrendingUp className="h-4 w-4 text-blue-400" />}
                         value={`${formatNumber(streamsPerDay)}/d`}
+                        fullValue={`${Math.round(streamsPerDay).toLocaleString()} streams per day`}
+                        label="Daily Average"
                       />
                     </div>
                   </div>
                 </div>
               </div>
               
-              {/* Mobile View (new design) */}
+              {/* Mobile View */}
               <div className="md:hidden">
                 <div className="flex items-center mb-2">
-                  <p className="text-sm font-medium text-white">{track.name}</p>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <p className="text-sm font-medium text-white truncate">{track.name}</p>
+                      </TooltipTrigger>
+                      <TooltipContent side="top">
+                        <p className="text-xs whitespace-nowrap">{track.name}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                   <div className="ml-auto">
                     <MiniStreamChart track={track} releaseDate={selectedAlbum?.release_date} />
                   </div>
@@ -178,23 +219,32 @@ const TrackCards: React.FC<TrackCardsProps> = ({ tracks, selectedAlbum, onTrackS
                 
                 <div className="flex items-center">
                   <div className="flex">
-                    <div className="flex items-center gap-1 text-green-400">
-                      <Play className="h-4 w-4" />
-                      <span className="text-sm font-medium">{formatNumber(track.playcount || 0)}</span>
+                    <div className="text-green-400">
+                      <MetricBadge 
+                        icon={<Play className="h-4 w-4" />}
+                        value={formatNumber(track.playcount || 0)}
+                        fullValue={track.playcount?.toLocaleString() || '0'}
+                      />
                     </div>
                     
                     <div className="h-4 w-px bg-white/10 mx-2"></div>
                     
-                    <div className="flex items-center gap-1 text-yellow-400">
-                      <DollarSign className="h-4 w-4" />
-                      <span className="text-sm font-medium">{formatNumber(revenue)}</span>
+                    <div className="text-yellow-400">
+                      <MetricBadge 
+                        icon={<DollarSign className="h-4 w-4" />}
+                        value={formatNumber(revenue)}
+                        fullValue={`$${revenue.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`}
+                      />
                     </div>
                     
                     <div className="h-4 w-px bg-white/10 mx-2"></div>
                     
-                    <div className="flex items-center gap-1 text-blue-400">
-                      <TrendingUp className="h-4 w-4" />
-                      <span className="text-sm font-medium">{formatNumber(streamsPerDay)}/d</span>
+                    <div className="text-blue-400">
+                      <MetricBadge 
+                        icon={<TrendingUp className="h-4 w-4" />}
+                        value={`${formatNumber(streamsPerDay)}/d`}
+                        fullValue={`${Math.round(streamsPerDay).toLocaleString()} streams per day`}
+                      />
                     </div>
                   </div>
                 </div>
