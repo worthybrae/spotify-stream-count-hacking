@@ -8,11 +8,25 @@ const api = axios.create({
   },
 });
 
-// Search albums by name - returns database results or Spotify results if none found
-export const searchAlbums = async (query: string, limit: number = 10): Promise<SearchResult[]> => {
+/**
+ * Search albums by name
+ * @param query - Search query string
+ * @param limit - Maximum number of results (default: 10)
+ * @param force_spotify - If true, skip database search and go directly to Spotify API
+ * @returns List of search results
+ */
+export const searchAlbums = async (
+  query: string, 
+  limit: number = 10,
+  force_spotify: boolean = false
+): Promise<SearchResult[]> => {
   try {
     const response = await api.get('/search/albums', {
-      params: { query, limit }
+      params: { 
+        query, 
+        limit,
+        force_spotify
+      }
     });
     return response.data;
   } catch (error) {

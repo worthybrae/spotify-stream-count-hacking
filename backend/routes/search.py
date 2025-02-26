@@ -10,10 +10,11 @@ router = APIRouter()
 async def search_albums(
     query: str = Query(..., min_length=1),
     limit: int = Query(default=10, le=50),
+    force_spotify: bool = Query(False, description="Force search on Spotify even if results found in database"),
     _: str = Depends(verify_api_key)
 ):
     """
-    Search albums by name in database. If no results, search Spotify API.
+    Search albums by name in database. If no results or force_spotify=True, search Spotify API.
     """
     try:
         # Get services
@@ -21,14 +22,16 @@ async def search_albums(
         spotify_services = get_spotify_services()
         official_spotify = spotify_services["official"]
         
-        # First search in database
-        db_results = await db_service.search_albums_by_name(query, limit)
+        # If not forcing Spotify, try database first
+        if not force_spotify:
+            # First search in database
+            db_results = await db_service.search_albums_by_name(query, limit)
+            
+            # If we have results, return them
+            if db_results and len(db_results) > 0:
+                return db_results
         
-        # If we have results, return them
-        if db_results and len(db_results) > 0:
-            return db_results
-        
-        # Otherwise, search in Spotify
+        # If we're forcing Spotify search or nothing was found in the database, search Spotify
         try:
             spotify_results = await official_spotify.search_albums(query, limit)
             

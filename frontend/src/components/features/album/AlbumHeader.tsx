@@ -128,38 +128,43 @@ const AlbumHeader: React.FC<AlbumHeaderProps> = ({ album, totalStreams, tracks }
               </div>
               
               {/* Performance Stats */}
-              <div className="flex-shrink-0 bg-white/5 rounded-xl p-2 mt-2 sm:mt-0">                                
-                <div className="flex items-center gap-3">
-                  <div className="text-green-400">
-                    <MetricBadge 
-                      icon={<Play className="h-4 w-4" />}
-                      value={formatNumber(totalStreams)}
-                      fullValue={totalStreams.toLocaleString()}
-                      label="Total Streams"
-                    />
-                  </div>
-                  
-                  <div className="h-4 w-px bg-white/10"></div>
-                  
-                  <div className="text-yellow-400">
-                    <MetricBadge 
-                      icon={<DollarSign className="h-4 w-4" />}
-                      value={formatRevenue(totalRevenue)}
-                      fullValue={`$${totalRevenue.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`}
-                      label="Total Revenue"
-                    />
-                  </div>
-                  
-                  <div className="h-4 w-px bg-white/10"></div>
-                  
-                  <div className="text-blue-400">
-                    <MetricBadge 
-                      icon={<TrendingUp className="h-4 w-4" />}
-                      value={`${formatNumber(streamsPerDay)}/day`}
-                      fullValue={`${Math.round(streamsPerDay).toLocaleString()} streams per day`}
-                      label="Daily Average"
-                    />
-                  </div>
+              <div className='h-full'>
+                <div className="flex bg-white/5 rounded-xl p-2 sm:mt-0">                                
+                    <div className="flex items-center gap-3">
+                    <div className="text-green-400">
+                        <MetricBadge 
+                        icon={<Play className="h-4 w-4" />}
+                        value={formatNumber(totalStreams)}
+                        fullValue={totalStreams.toLocaleString()}
+                        className='text-sm'
+                        label="Total Streams"
+                        />
+                    </div>
+                    
+                    <div className="h-4 w-px bg-white/10"></div>
+                    
+                    <div className="text-yellow-400">
+                        <MetricBadge 
+                        icon={<DollarSign className="h-4 w-4" />}
+                        value={formatRevenue(totalRevenue)}
+                        className='text-sm'
+                        fullValue={`$${totalRevenue.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`}
+                        label="Total Revenue"
+                        />
+                    </div>
+                    
+                    <div className="h-4 w-px bg-white/10"></div>
+                    
+                    <div className="text-blue-400">
+                        <MetricBadge 
+                        icon={<TrendingUp className="h-4 w-4" />}
+                        value={`${formatNumber(streamsPerDay)}/day`}
+                        className='text-sm'
+                        fullValue={`${Math.round(streamsPerDay).toLocaleString()} streams per day`}
+                        label="Daily Average"
+                        />
+                    </div>
+                    </div>
                 </div>
               </div>
             </div>

@@ -43,8 +43,8 @@ const HomePage = () => {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center h-full">
       {/* Left column - centered content */}
-      <div className="flex items-center h-full">
-        <div>
+      <div className="flex items-center h-full ">
+        <div className='mt-8 mb-4 md:mt-0 md:mb-0'>
           <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold text-white mb-3">
             Get Spotify Streaming Data
           </h1>
