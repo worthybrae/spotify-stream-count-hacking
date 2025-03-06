@@ -79,40 +79,32 @@ class DatabaseService:
                 
             # Get tracks with their latest stream counts
             tracks = await conn.fetch("""
-                WITH latest_streams AS (
-                    SELECT DISTINCT ON (track_id)
-                        track_id, play_count
+                WITH streamsdata AS (
+                    SELECT
+                        track_id, timestamp::DATE as day, max(play_count) as plays
                     FROM streams
-                    WHERE album_id = $1
-                    ORDER BY track_id, timestamp DESC
+                    WHERE album_id = $1 AND timestamp >= CURRENT_DATE - INTERVAL '8 days'
+                    GROUP BY track_id, day
+                ), tracksdata AS (
+                    SELECT
+                        track_id,
+                        name
+                    FROM tracks
+                    WHERE album_id = $1                      
                 )
                 SELECT 
-                    t.track_id,
+                    s.track_id,
                     t.name,
-                    COALESCE(ls.play_count, 0) as playcount
-                FROM tracks t
-                LEFT JOIN latest_streams ls ON t.track_id = ls.track_id
-                WHERE t.album_id = $1
-                ORDER BY t.name
-            """, album_id)
-            
-            # Get total streams for the album
-            total_streams = await conn.fetchval("""
-                WITH latest_streams AS (
-                    SELECT DISTINCT ON (track_id)
-                        track_id, play_count
-                    FROM streams
-                    WHERE album_id = $1
-                    ORDER BY track_id, timestamp DESC
-                )
-                SELECT COALESCE(SUM(play_count), 0)
-                FROM latest_streams
+                    s.day,
+                    COALESCE(s.plays, 0) as playcount
+                FROM streamsdata s
+                LEFT JOIN tracksdata t ON t.track_id = s.track_id
+                ORDER BY t.name, s.day
             """, album_id)
             
             return {
                 "album": dict(album),
-                "tracks": [dict(t) for t in tracks],
-                "total_streams": total_streams
+                "tracks": [dict(t) for t in tracks]
             }
     
     @staticmethod
@@ -321,3 +313,5 @@ class DatabaseService:
                     'tracks_count': tracks_count,
                     'streams_count': streams_count
                 }
+
+    

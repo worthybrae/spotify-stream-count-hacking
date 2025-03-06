@@ -24,10 +24,10 @@ const MainLayout = () => {
   return (
     <div className="flex flex-col min-h-screen">
       {/* Header */}
-      <header className="fixed top-0 left-0 right-0 w-full backdrop-blur-sm z-50 bg-black/20">
+      <header className="fixed top-0 left-0 right-0 w-full backdrop-blur-sm z-50 bg-black/0">
         <div className="container mx-auto px-4">
           <div className="flex h-14 items-center justify-between">
-            <Link to="/" className="text-lg font-medium text-white">streamclout</Link>
+            <Link to="/" className="text-lg font-medium text-white">streamclout.io</Link>
             <nav className="flex gap-6">
               <Link to="/api" className="text-sm text-white/70 hover:text-white transition-colors">api</Link>
               <Link to="/about" className="text-sm text-white/70 hover:text-white transition-colors">about</Link>
@@ -47,17 +47,17 @@ const MainLayout = () => {
       <BackgroundManager selectedAlbum={selectedAlbum} />
       
       {/* Footer */}
-      <footer className="fixed bottom-0 left-0 right-0 w-full bg-background/5 backdrop-blur z-50">
+      <footer className="fixed bottom-0 left-0 right-0 w-full z-50 backdrop-blur-sm">
         <div className="container mx-auto px-4">
-          <div className="flex justify-center py-2">
-            <span className="text-xs text-muted-foreground">
+          <div className="flex justify-center py-2 font-bold">
+            <span className="text-xs">
               <a 
                 href="https://worthyrae.com" 
                 target="_blank" 
                 rel="noopener noreferrer"
-                className="text-primary hover:underline text-white"
+                className="hover:underline text-white/60"
               >
-                built by worthy
+                by worthy
               </a>
             </span>
           </div>

@@ -1,7 +1,7 @@
 # routes/albums.py
 from fastapi import APIRouter, HTTPException, Depends, Query
 import traceback
-from datetime import datetime
+from datetime import datetime, date
 
 from models import AlbumSaveRequest
 from routes.dependencies import verify_api_key, get_spotify_services, get_database_service
@@ -96,6 +96,7 @@ async def fetch_album(
             {
                 "track_id": track.track_id,
                 "name": track.name,
+                "day": datetime.today(),
                 "playcount": track.playcount
             } for track in album_data.tracks
         ]
@@ -110,7 +111,6 @@ async def fetch_album(
                 "release_date": album_info["release_date"]
             },
             "tracks": tracks_list,
-            "total_streams": sum(track.playcount for track in album_data.tracks)
         }
     
     except Exception as unofficial_error:
@@ -238,3 +238,4 @@ async def get_all_albums(
         err_trace = traceback.format_exc()
         print(f"Error fetching all albums: {err_trace}")
         raise HTTPException(status_code=500, detail=f"Failed to fetch albums: {str(e)}")
+    

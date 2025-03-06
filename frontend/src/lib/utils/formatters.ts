@@ -95,3 +95,91 @@ export const generateStreamHistory = (
   
   return data;
 };
+
+/**
+ * Calculate cumulative new streams for the past week
+ * @param streamHistory Array of stream data points with date and streams
+ * @returns Total number of new streams in the past week
+ */
+export const calculateWeeklyNewStreams = (
+  streamHistory: Array<{date: string, streams: number}> | undefined
+): number => {
+  if (!streamHistory || streamHistory.length < 2) return 0;
+  
+  // Sort by date
+  const sortedHistory = [...streamHistory].sort((a, b) => 
+    new Date(a.date).getTime() - new Date(b.date).getTime()
+  );
+  
+  // Get only the last 8 data points (to calculate 7 days of changes)
+  const recentData = sortedHistory.length > 8 
+    ? sortedHistory.slice(-8) 
+    : sortedHistory;
+  
+  // Need at least 2 points to calculate change
+  if (recentData.length < 2) return 0;
+  
+  // Sum all new streams in the period
+  let totalNewStreams = 0;
+  for (let i = 1; i < recentData.length; i++) {
+    const dailyNew = Math.max(0, recentData[i].streams - recentData[i-1].streams);
+    totalNewStreams += dailyNew;
+  }
+  
+  return totalNewStreams;
+};
+
+/**
+ * Get cumulative stream data points for charting
+ * @param streamHistory Array of stream data points with date and streams
+ * @returns Array of data points with cumulative streams calculation
+ */
+export const getCumulativeStreamData = (
+  streamHistory: Array<{date: string, streams: number}> | undefined
+): Array<{date: string, dailyNew: number, cumulativeNew: number}> => {
+  if (!streamHistory || streamHistory.length < 2) return [];
+  
+  // Sort by date
+  const sortedHistory = [...streamHistory].sort((a, b) => 
+    new Date(a.date).getTime() - new Date(b.date).getTime()
+  );
+  
+  // Get only the last 8 data points (to calculate 7 days of changes)
+  const recentData = sortedHistory.length > 8 
+    ? sortedHistory.slice(-8) 
+    : sortedHistory;
+  
+  // Need at least 2 points to calculate change
+  if (recentData.length < 2) return [];
+  
+  // Calculate daily new and cumulative new streams
+  const chartData = [];
+  let cumulativeNewStreams = 0;
+  
+  for (let i = 1; i < recentData.length; i++) {
+    const dailyNew = Math.max(0, recentData[i].streams - recentData[i-1].streams);
+    cumulativeNewStreams += dailyNew;
+    
+    chartData.push({
+      date: recentData[i].date,
+      dailyNew,
+      cumulativeNew: cumulativeNewStreams
+    });
+  }
+  
+  return chartData;
+};
+
+/**
+ * Calculate daily stream changes from cumulative stream data
+ * @param chartData Array of data points with date and streams
+ * @returns Array of data points with daily stream changes
+ */
+export const calculateDailyStreams = (
+  chartData: Array<{date: string, streams: number}>
+): Array<{date: string, streams: number}> => {
+  return chartData.map((point, i, arr) => ({
+    date: point.date,
+    streams: i > 0 ? point.streams - arr[i-1].streams : point.streams
+  }));
+};

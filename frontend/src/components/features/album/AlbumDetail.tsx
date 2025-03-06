@@ -13,6 +13,14 @@ interface AlbumDetailProps {
   loading: boolean;
   error: string | null;
   onBackToSearch: () => void;
+  albumDetails?: {
+    album_id: string;
+    album_name: string;
+    artist_id: string;
+    artist_name: string;
+    cover_art: string;
+    release_date: string;
+  } | null;
 }
 
 const AlbumDetail: React.FC<AlbumDetailProps> = ({
@@ -21,12 +29,16 @@ const AlbumDetail: React.FC<AlbumDetailProps> = ({
   totalStreams,
   loading,
   error,
-  onBackToSearch
+  onBackToSearch,
+  albumDetails
 }) => {
   if (!selectedAlbum) return null;
 
+  // Use albumDetails if available, otherwise use selectedAlbum
+  const albumData = albumDetails || selectedAlbum;
+
   return (
-    <div className="w-full overflow-auto" style={{ maxHeight: 'calc(100vh - 6rem)' }}>
+    <div className="w-full" style={{ maxHeight: 'calc(100vh - 6rem)' }}>
       <button
         onClick={onBackToSearch}
         className="flex items-center gap-2 text-white/60 hover:text-white transition-colors mb-4"
@@ -41,10 +53,10 @@ const AlbumDetail: React.FC<AlbumDetailProps> = ({
         </div>
       )}
 
-      <Card className="p-4 md:p-6 bg-black/80 border-white/10">
+      <Card className="p-4 md:p-6 bg-black/40 border-white/10 h-full">
         {/* Album Header with Performance Stats */}
         <AlbumHeader 
-          album={selectedAlbum} 
+          album={albumData} 
           totalStreams={totalStreams} 
           tracks={tracks}
         />
@@ -60,7 +72,7 @@ const AlbumDetail: React.FC<AlbumDetailProps> = ({
             {tracks.length > 0 ? (
               <TrackCards 
                 tracks={tracks}
-                selectedAlbum={selectedAlbum}
+                selectedAlbum={albumData}
               />
             ) : (
               <div className="text-center py-8 text-white/60">

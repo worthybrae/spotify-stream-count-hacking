@@ -71,3 +71,35 @@ export const getAllAlbums = async (limit: number = 50, offset: number = 0): Prom
     return [];
   }
 };
+
+export const getAlbumStreamHistory = async (albumId: string, days: number = 7): Promise<{
+  album: {
+    album_id: string;
+    album_name: string;
+    artist_id: string;
+    artist_name: string;
+    cover_art: string;
+    release_date: string;
+  };
+  tracks: Track[];
+  total_streams: number;
+  stream_history: Array<{
+    date: string;
+    streams: number;
+    tracks_count: number;
+  }>;
+  daily_new_streams: Array<{
+    date: string;
+    new_streams: number;
+  }>;
+}> => {
+  try {
+    const response = await api.get(`/albums/${albumId}/streams`, {
+      params: { days }
+    });
+    return response.data;
+  } catch (error) {
+    console.error(`Error fetching album stream history for ${albumId}:`, error);
+    throw error;
+  }
+};

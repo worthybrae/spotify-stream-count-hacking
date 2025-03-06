@@ -14,7 +14,8 @@ const HomePage = () => {
     loading, 
     error, 
     fetchAlbumData, 
-    clearAlbumData 
+    clearAlbumData,
+    albumDetails 
   } = useAlbumData();
 
   const handleAlbumSelect = async (album: SearchResult) => {
@@ -43,12 +44,12 @@ const HomePage = () => {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center h-full">
       {/* Left column - centered content */}
-      <div className="flex items-center h-full ">
+      <div className="flex items-center h-full mb-8 md:mb-0">
         <div className='mt-8 mb-4 md:mt-0 md:mb-0'>
-          <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold text-white mb-3">
+          <h1 className="text-5xl md:text-6xl lg:text-7xl text-center md:text-left font-bold text-white mb-3">
             Get Spotify Streaming Data
           </h1>
-          <p className="text-lg text-white/60">
+          <p className="text-sm text-center md:text-left md:text-lg text-white/60 ">
             Track daily stream counts for any album on Spotify
           </p>
         </div>
@@ -70,6 +71,7 @@ const HomePage = () => {
               loading={loading}
               error={error}
               onBackToSearch={handleBackToSearch}
+              albumDetails={albumDetails}
             />
           )}
         </div>
