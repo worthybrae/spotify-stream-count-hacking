@@ -64,3 +64,14 @@ class AlbumWithTracksResponse(BaseModel):
 class StreamsAddRequest(BaseModel):
     album_id: str
     streams: List[StreamCount]
+
+class ApiKey(BaseModel):
+    api_key: str
+    ip_address: str
+    created_at: Optional[datetime] = None
+    is_active: bool = True
+
+class RequestLog(BaseModel):
+    ip_address: str
+    api_key: Optional[str] = None
+    endpoint: Optional[str] = None

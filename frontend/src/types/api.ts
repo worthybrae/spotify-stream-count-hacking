@@ -90,3 +90,18 @@ export interface AlbumInfo {
   cover_art: string;
   release_date: string;
 }
+
+// API Key related interfaces
+export interface ApiRequest {
+  timestamp: string;
+  endpoint: string;
+  ip_address?: string;
+}
+
+export interface ApiKeyInfo {
+  api_key: string;
+  ip_address: string;
+  created_at: string;
+  is_active: boolean;
+  requests?: ApiRequest[];
+}

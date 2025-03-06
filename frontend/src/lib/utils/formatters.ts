@@ -1,4 +1,4 @@
-// Assuming this file would be at @/lib/utils/formatters.ts
+// lib/utils/formatters.ts
 
 // Format large numbers with k/M/B suffix
 export const formatNumber = (num: number): string => {
@@ -22,6 +22,22 @@ export const formatDate = (dateString: string): string => {
     day: 'numeric',
     year: 'numeric'
   }).format(date);
+};
+
+// Format timestamp from ISO string to human readable format
+export const formatTimestamp = (timestamp: string): string => {
+  const date = new Date(timestamp);
+  
+  // Format: "Mar 6, 2025, 14:23:45"
+  return date.toLocaleString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  });
 };
 
 // Calculate revenue based on Spotify's average payout rate

@@ -7,11 +7,14 @@ from contextlib import asynccontextmanager
 import asyncio
 import traceback
 from datetime import datetime
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 # Import routes
 from routes.albums import router as albums_router
 from routes.search import router as search_router
 from routes.streams import router as streams_router
+from routes.auth import router as auth_router
 
 # Import the process_albums function from update_streams service
 from services.update_streams import process_albums
@@ -78,10 +81,30 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.add_middleware(
+    TrustedHostMiddleware, 
+    allowed_hosts=["*"] 
+)
+
+class ProxyHeadersMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request, call_next):
+        # Get the IP from X-Forwarded-For, X-Real-IP, etc.
+        forwarded_for = request.headers.get("X-Forwarded-For")
+        if forwarded_for:
+            # Log forwarded IP for debugging
+            print(f"Original client host: {request.client.host}")
+            print(f"Forwarded for: {forwarded_for}")
+        
+        response = await call_next(request)
+        return response
+
+app.add_middleware(ProxyHeadersMiddleware)
+
 # Include routers
 app.include_router(albums_router, prefix="/albums", tags=["Albums"])
 app.include_router(search_router, prefix="/search", tags=["Search"])
 app.include_router(streams_router, prefix="/streams", tags=["Streams"])
+app.include_router(auth_router, prefix="/auth", tags=["Auth"])
 
 # Add a simple health check endpoint
 @app.get("/", tags=["Health"])
