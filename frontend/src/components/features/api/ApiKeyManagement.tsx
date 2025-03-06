@@ -6,8 +6,7 @@ import {
   createApiKey, 
   getApiKeyInfo, 
   regenerateApiKey, 
-  deleteApiKey,
-  refreshRequestLogs 
+  deleteApiKey
 } from '@/lib/api/authApi';
 import RequestStatsTable from './RequestStatsTable';
 import { ApiKeyInfo } from '@/types/api';
@@ -15,7 +14,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 
 const ApiKeyManagement = () => {
   const [loading, setLoading] = useState(true);
-  const [refreshingLogs, setRefreshingLogs] = useState(false);
   const [apiKeyInfo, setApiKeyInfo] = useState<ApiKeyInfo | null>(null);
   const [showApiKey, setShowApiKey] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
@@ -98,30 +96,6 @@ const ApiKeyManagement = () => {
     }
   };
 
-  const handleRefreshRequestLogs = async () => {
-    console.log('Refreshing request logs...');
-    setError(null);
-    setRefreshingLogs(true);
-    
-    try {
-      const response = await refreshRequestLogs();
-      console.log('Request logs refresh response:', response);
-      
-      // Only update the requests part of the API key info
-      if (apiKeyInfo && response) {
-        setApiKeyInfo({
-          ...apiKeyInfo,
-          requests: response.requests
-        });
-      }
-    } catch (error) {
-      console.error('Failed to refresh request logs:', error);
-      setError('Failed to refresh request logs. Please try again.');
-    } finally {
-      setRefreshingLogs(false);
-    }
-  };
-
   const handleCopyApiKey = () => {
     if (apiKeyInfo?.api_key) {
       navigator.clipboard.writeText(apiKeyInfo.api_key);
@@ -169,7 +143,7 @@ const ApiKeyManagement = () => {
       </Dialog>
 
       {/* API Key Section */}
-      <div className=" rounded-lg">
+      <div className="rounded-lg">
         <h2 className="text-lg text-white mb-4">API Key</h2>
         
         {error && (
@@ -186,8 +160,8 @@ const ApiKeyManagement = () => {
         ) : apiKeyInfo ? (
           <div className="space-y-6">
             <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <code className="flex-1 p-3 bg-black/30 rounded text-white font-mono text-base">
+              <div className="flex flex-row gap-2 w-full items-center ">
+                <code className="flex-1 overflow-hidden p-3 text-ellipsis bg-black/30 rounded text-white font-mono text-base">
                   {formatApiKey(apiKeyInfo.api_key)}
                 </code>
                 <Button 
@@ -275,18 +249,10 @@ const ApiKeyManagement = () => {
 <div className="rounded-lg">
   <div className="flex items-center justify-between mb-4">
     <h2 className="text-lg text-white">Requests</h2>
-    <Button 
-      size="sm"
-      className="bg-white/10 hover:bg-white/80 text-white hover:text-black/80"
-      onClick={handleRefreshRequestLogs}
-      disabled={refreshingLogs}
-    >
-      <RefreshCw className={`h-3 w-3 mr-2 ${refreshingLogs ? 'animate-spin' : ''}`} />
-      Refresh Logs
-    </Button>
+    
   </div>
   
-  <div className="flex max-h-36"> {/* Added fixed height container */}
+  <div className="h-64 overflow-y-scroll overflow-x-hidden"> {/* Added fixed height container */}
     {apiKeyInfo?.requests ? (
       <RequestStatsTable requests={apiKeyInfo.requests}/>
     ) : (
