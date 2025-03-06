@@ -83,16 +83,13 @@ async def verify_api_key(request: Request, api_key: str = Depends(API_KEY_HEADER
             raise HTTPException(status_code=403, detail="Invalid API key")
         
         # Get request count for rate limiting
-        try:
-            request_count = await ApiKeyService.get_request_count(client_ip, api_key, minutes=60)
-            print(f"Request count for IP {client_ip}: {request_count}/10 in the last hour")
-            
-            # Rate limit: 10 requests per hour for regular users
-            if request_count > 10:
-                print(f"❌ Rate limit exceeded for IP: {client_ip}, count: {request_count}")
-                raise HTTPException(status_code=429, detail="Rate limit exceeded (10 requests per hour)")
-        except Exception as rate_error:
-            print(f"Warning: Failed to check rate limits: {str(rate_error)}")
+        request_count = await ApiKeyService.get_request_count(client_ip, api_key, minutes=60)
+        print(f"Request count for IP {client_ip}: {request_count}/10 in the last hour")
+        
+        # Rate limit: 10 requests per hour for regular users
+        if request_count > 10:
+            print(f"❌ Rate limit exceeded for IP: {client_ip}, count: {request_count}")
+            raise HTTPException(status_code=429, detail="Rate limit exceeded (10 requests per hour)")
         
         return api_key
         

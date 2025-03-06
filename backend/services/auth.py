@@ -2,6 +2,7 @@
 from datetime import datetime
 import secrets
 import string
+from fastapi import HTTPException
 from typing import Optional, List, Dict
 from services.database import get_db
 from config import settings  # Import settings to access API_KEY env var
@@ -252,7 +253,7 @@ class ApiKeyService:
             print(f"Error logging API request: {str(e)}")
             print(traceback.format_exc())
             # Don't raise to prevent failed logging from breaking the API
-    
+
     @staticmethod
     async def get_request_count(ip_address: str, api_key: str, minutes: int = 60) -> int:
         try:
@@ -273,9 +274,19 @@ class ApiKeyService:
                     ip_address
                 )
                 
-                return result['count'] if result else 0
+                count = result['count'] if result else 0
+                
+                # If count exceeds limit, raise an error instead of just returning the count
+                if count > 10:
+                    raise HTTPException(status_code=429, detail="Rate limit exceeded (10 requests per hour)")
+                    
+                return count
+        except HTTPException:
+            # Re-raise HTTP exceptions
+            raise
         except Exception as e:
             print(f"Error getting request count: {str(e)}")
+            # Return a value that won't trigger rate limiting in case of DB errors
             return 0
     
     @staticmethod
@@ -285,7 +296,7 @@ class ApiKeyService:
             async with get_db() as conn:
                 # Fix: use a proper interval expression
                 results = await conn.fetch(
-                    "SELECT endpoint, timestamp FROM request_logs WHERE ip_address = $1 AND timestamp > now() - INTERVAL '" + str(minutes) + " minutes' ORDER BY timestamp DESC LIMIT 20",
+                    "SELECT endpoint, timestamp FROM request_logs WHERE ip_address = $1 AND timestamp > now() - INTERVAL '" + str(minutes) + " minutes' ORDER BY timestamp DESC LIMIT 10",
                     ip_address
                 )
                 
