@@ -93,7 +93,6 @@ async def verify_api_key(request: Request, api_key: str = Depends(API_KEY_HEADER
                 raise HTTPException(status_code=429, detail="Rate limit exceeded (10 requests per hour)")
         except Exception as rate_error:
             print(f"Warning: Failed to check rate limits: {str(rate_error)}")
-            # Continue even if rate limiting fails
         
         return api_key
         

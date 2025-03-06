@@ -255,29 +255,27 @@ class ApiKeyService:
     
     @staticmethod
     async def get_request_count(ip_address: str, api_key: str, minutes: int = 60) -> int:
-        """
-        Get the number of requests from an IP address in the past X minutes.
-        Skip counting for the special API key from env vars.
-        """
         try:
-            # Special case: if the API key matches the one from env vars, always return 0 (no rate limit)
+            # Skip counting for admin key
             admin_key = getattr(settings, 'API_KEY', None)
             if admin_key and api_key == admin_key:
                 return 0
                 
             async with get_db() as conn:
-                # Count requests based on IP address, not the API key
-                # This implements rate limiting per IP, not per key
+                # Only count requests to specific protected endpoints
+                # or endpoints that start with /albums/, /streams/, etc.
                 result = await conn.fetchrow(
-                    "SELECT COUNT(*) as count FROM request_logs WHERE ip_address = $1 AND timestamp > now() - INTERVAL '" + str(minutes) + " minutes'",
+                    """SELECT COUNT(*) as count FROM request_logs 
+                    WHERE ip_address = $1 
+                    AND timestamp > now() - INTERVAL '60 minutes'
+                    AND (endpoint LIKE '/albums/%' OR endpoint LIKE '/streams/%')
+                    """,
                     ip_address
                 )
                 
                 return result['count'] if result else 0
         except Exception as e:
             print(f"Error getting request count: {str(e)}")
-            print(traceback.format_exc())
-            # Return a safe default: if we can't count, assume 0 to avoid blocking requests
             return 0
     
     @staticmethod
