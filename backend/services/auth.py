@@ -23,7 +23,7 @@ class ApiKeyService:
         
         try:
             async with get_db() as conn:
-                # Check if IP already has a key
+                # Check if IP already has an active key
                 existing = await conn.fetchrow(
                     "SELECT api_key FROM api_keys WHERE ip_address = $1 AND is_active = true",
                     ip_address
@@ -33,6 +33,16 @@ class ApiKeyService:
                     # If IP already has an active key, return it instead of creating a new one
                     api_key_info = await ApiKeyService.get_api_key_for_ip(ip_address)
                     return api_key_info
+                
+                # First, deactivate any existing keys for this IP
+                await conn.execute(
+                    """
+                    UPDATE api_keys
+                    SET is_active = false
+                    WHERE ip_address = $1
+                    """,
+                    ip_address
+                )
                 
                 # Create new key
                 created_at = datetime.now()
@@ -54,6 +64,100 @@ class ApiKeyService:
             print(f"Error creating API key: {str(e)}")
             print(traceback.format_exc())
             raise
+    
+    @staticmethod
+    async def regenerate_api_key(ip_address: str) -> Dict:
+        """
+        Regenerate an API key for the given IP address.
+        Deactivates any existing keys and creates a new one.
+        
+        Args:
+            ip_address: The IP address to create a new key for
+            
+        Returns:
+            Dict with the new API key info
+        """
+        try:
+            async with get_db() as conn:
+                # First deactivate all existing keys for this IP
+                await conn.execute(
+                    """
+                    UPDATE api_keys
+                    SET is_active = false
+                    WHERE ip_address = $1
+                    """,
+                    ip_address
+                )
+                
+                # Generate a new API key
+                api_key = ApiKeyService.generate_api_key()
+                created_at = datetime.now()
+                
+                # Create new key
+                await conn.execute(
+                    """
+                    INSERT INTO api_keys (api_key, ip_address, created_at, is_active) 
+                    VALUES ($1, $2, $3, $4)
+                    """,
+                    api_key, ip_address, created_at, True
+                )
+                
+                # Return the new key info
+                return {
+                    "api_key": api_key,
+                    "ip_address": ip_address,
+                    "created_at": created_at,
+                    "is_active": True
+                }
+        except Exception as e:
+            print(f"Error regenerating API key: {str(e)}")
+            print(traceback.format_exc())
+            raise
+    
+    @staticmethod
+    async def deactivate_api_keys_for_ip(ip_address: str) -> int:
+        """
+        Deactivate all API keys for an IP address
+        
+        Args:
+            ip_address: The IP address to deactivate keys for
+            
+        Returns:
+            Number of keys deactivated
+        """
+        try:
+            async with get_db() as conn:
+                print(f"Deactivating API keys for IP: {ip_address}")
+                
+                result = await conn.execute(
+                    """
+                    UPDATE api_keys
+                    SET is_active = false
+                    WHERE ip_address = $1 AND is_active = true
+                    """,
+                    ip_address
+                )
+                
+                # Extract the number of rows updated
+                # The format is typically like "UPDATE 3"
+                try:
+                    # Get the number of rows updated from the string
+                    rows_updated = int(result.split()[1]) if result and ' ' in result else 0
+                    print(f"Deactivated {rows_updated} API keys for IP: {ip_address}")
+                    return rows_updated
+                except (IndexError, ValueError):
+                    print(f"Could not parse result: {result}")
+                    # If we can't parse the result, try to count the rows manually
+                    count = await conn.fetchval(
+                        "SELECT COUNT(*) FROM api_keys WHERE ip_address = $1 AND is_active = false",
+                        ip_address
+                    )
+                    return count or 0
+                
+        except Exception as e:
+            print(f"Error deactivating API keys: {str(e)}")
+            print(traceback.format_exc())
+            return 0
     
     @staticmethod
     async def get_api_key_for_ip(ip_address: str) -> Optional[Dict]:
@@ -162,7 +266,8 @@ class ApiKeyService:
                 return 0
                 
             async with get_db() as conn:
-                # Fix: use a proper interval expression
+                # Count requests based on IP address, not the API key
+                # This implements rate limiting per IP, not per key
                 result = await conn.fetchrow(
                     "SELECT COUNT(*) as count FROM request_logs WHERE ip_address = $1 AND timestamp > now() - INTERVAL '" + str(minutes) + " minutes'",
                     ip_address

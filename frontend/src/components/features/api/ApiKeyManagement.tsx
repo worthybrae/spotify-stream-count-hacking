@@ -1,17 +1,26 @@
 // components/features/api/ApiKeyManagement.tsx
 import { useState, useEffect } from 'react';
-import { Copy, Eye, EyeOff, RefreshCw } from 'lucide-react';
+import { Copy, Eye, EyeOff, RefreshCw, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { createApiKey, getApiKeyInfo } from '@/lib/api/authApi';
+import { 
+  createApiKey, 
+  getApiKeyInfo, 
+  regenerateApiKey, 
+  deleteApiKey,
+  refreshRequestLogs 
+} from '@/lib/api/authApi';
 import RequestStatsTable from './RequestStatsTable';
 import { ApiKeyInfo } from '@/types/api';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 
 const ApiKeyManagement = () => {
   const [loading, setLoading] = useState(true);
+  const [refreshingLogs, setRefreshingLogs] = useState(false);
   const [apiKeyInfo, setApiKeyInfo] = useState<ApiKeyInfo | null>(null);
   const [showApiKey, setShowApiKey] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   // Fetch existing API key info on component mount
   useEffect(() => {
@@ -53,6 +62,66 @@ const ApiKeyManagement = () => {
     }
   };
 
+  const handleRegenerateApiKey = async () => {
+    console.log('Regenerating API key...');
+    setError(null);
+    setLoading(true);
+    
+    try {
+      const response = await regenerateApiKey();
+      console.log('API key regeneration response:', response);
+      setApiKeyInfo(response);
+      setShowApiKey(true); // Automatically show the newly created key
+    } catch (error) {
+      console.error('Failed to regenerate API key:', error);
+      setError('Failed to regenerate API key. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteApiKey = async () => {
+    console.log('Deleting API key...');
+    setError(null);
+    setLoading(true);
+    setConfirmDelete(false);
+    
+    try {
+      await deleteApiKey();
+      console.log('API key deleted successfully');
+      setApiKeyInfo(null);
+    } catch (error) {
+      console.error('Failed to delete API key:', error);
+      setError('Failed to delete API key. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRefreshRequestLogs = async () => {
+    console.log('Refreshing request logs...');
+    setError(null);
+    setRefreshingLogs(true);
+    
+    try {
+      const response = await refreshRequestLogs();
+      console.log('Request logs refresh response:', response);
+      
+      // Only update the requests part of the API key info
+      if (apiKeyInfo && response) {
+        setApiKeyInfo({
+          ...apiKeyInfo,
+          requests: response.requests
+        });
+      }
+    } catch (error) {
+      console.error('Failed to refresh request logs:', error);
+      setError('Failed to refresh request logs. Please try again.');
+    } finally {
+      setRefreshingLogs(false);
+    }
+  };
+
   const handleCopyApiKey = () => {
     if (apiKeyInfo?.api_key) {
       navigator.clipboard.writeText(apiKeyInfo.api_key);
@@ -71,9 +140,37 @@ const ApiKeyManagement = () => {
 
   return (
     <div className="space-y-8">
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={confirmDelete} onOpenChange={setConfirmDelete}>
+        <DialogContent className="bg-gray-900 border-white/10">
+          <DialogHeader>
+            <DialogTitle className="text-white">Delete API Key?</DialogTitle>
+            <DialogDescription className="text-white/70">
+              This will permanently delete your API key. You won't be able to use existing API access until you generate a new key.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex justify-end space-x-2">
+            <Button 
+              variant="outline" 
+              onClick={() => setConfirmDelete(false)}
+              className="border-white/20 hover:bg-white/10 text-white/80"
+            >
+              Cancel
+            </Button>
+            <Button 
+              variant="destructive" 
+              onClick={handleDeleteApiKey}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* API Key Section */}
-      <div className="bg-white/5 border border-white/10 rounded-lg p-6">
-        <h2 className="text-xl font-semibold text-white mb-4">Your API Key</h2>
+      <div className=" rounded-lg">
+        <h2 className="text-lg text-white mb-4">API Key</h2>
         
         {error && (
           <div className="mb-4 p-3 bg-red-900/30 border border-red-500/30 rounded text-red-200 text-sm">
@@ -130,9 +227,9 @@ const ApiKeyManagement = () => {
 
             <div className="flex space-x-4">
               <Button 
-                onClick={handleCreateApiKey} 
+                onClick={handleRegenerateApiKey} 
                 disabled={loading}
-                className="bg-blue-600 hover:bg-blue-700 text-white flex-1"
+                className="bg-white/10 hover:bg-white/80 text-white hover:text-black/80 flex-1"
               >
                 {loading ? (
                   <>
@@ -145,23 +242,21 @@ const ApiKeyManagement = () => {
               </Button>
               
               <Button 
-                onClick={fetchApiKeyInfo} 
+                onClick={() => setConfirmDelete(true)} 
                 disabled={loading}
-                variant="outline"
-                className="border-white/20 hover:bg-white/10"
+                className="bg-red-500/30 hover:bg-red-500/60 text-white"
               >
-                <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-                Refresh
+                <Trash2 className="mr-2 h-4 w-4 text-red-400" />
+                Delete
               </Button>
             </div>
           </div>
         ) : (
           <div className="space-y-4">
-            <p className="text-white/80">No API key found for your IP address</p>
             <Button 
               onClick={handleCreateApiKey} 
               disabled={loading}
-              className="bg-blue-600 hover:bg-blue-700 text-white w-full"
+              className="bg-black/40 hover:bg-black/70 text-white w-full"
             >
               {loading ? (
                 <>
@@ -177,18 +272,17 @@ const ApiKeyManagement = () => {
       </div>
 
       {/* Request History Section */}
-      <div className="bg-white/5 border border-white/10 rounded-lg p-6">
+      <div className="rounded-lg">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-semibold text-white">API Requests (Last Hour)</h2>
+          <h2 className="text-lg text-white">Requests</h2>
           <Button 
-            variant="outline" 
             size="sm"
-            className="text-white/70 hover:text-white hover:bg-white/10 border-white/20"
-            onClick={fetchApiKeyInfo}
-            disabled={loading}
+            className="bg-white/10 hover:bg-white/80 text-white hover:text-black/80"
+            onClick={handleRefreshRequestLogs}
+            disabled={refreshingLogs}
           >
-            <RefreshCw className={`h-3 w-3 mr-2 ${loading ? 'animate-spin' : ''}`} />
-            Refresh
+            <RefreshCw className={`h-3 w-3 mr-2 ${refreshingLogs ? 'animate-spin' : ''}`} />
+            Refresh Logs
           </Button>
         </div>
         

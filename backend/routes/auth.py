@@ -62,6 +62,85 @@ async def create_api_key(request: Request, api_key_request: ApiKeyRequest = None
         print(f"Error creating API key: {err_trace}")
         raise HTTPException(status_code=500, detail=f"Failed to create API key: {str(e)}")
 
+@router.post("/api-keys/regenerate", status_code=201)
+async def regenerate_api_key(request: Request, api_key_request: ApiKeyRequest = None):
+    """Regenerate API key for an IP address (deactivates old key, creates new one)"""
+    try:
+        # Get client IP
+        client_ip = None
+        
+        # If IP was provided in the request, use that
+        if api_key_request and api_key_request.client_ip:
+            client_ip = api_key_request.client_ip
+            print(f"Using provided client IP from request body: {client_ip}")
+        else:
+            # Otherwise get it from the request headers/client
+            client_ip = get_client_ip(request)
+        
+        print(f"Regenerating API key for IP: {client_ip}")
+        
+        # Use the simplified regenerate method
+        api_key_data = await ApiKeyService.regenerate_api_key(client_ip)
+        print(f"Regenerated API key for IP: {client_ip}")
+        
+        return api_key_data
+    except Exception as e:
+        err_trace = traceback.format_exc()
+        print(f"Error regenerating API key: {err_trace}")
+        raise HTTPException(status_code=500, detail=f"Failed to regenerate API key: {str(e)}")
+
+@router.delete("/api-keys")
+async def delete_api_key(
+    request: Request, 
+    client_ip: Optional[str] = Query(None, description="Optional client IP to delete key for")
+):
+    """Delete API key for an IP address"""
+    try:
+        # Get client IP
+        ip_to_use = client_ip or get_client_ip(request)
+        
+        print(f"Deleting API key for IP: {ip_to_use}")
+        
+        # Deactivate all keys for this IP
+        count = await ApiKeyService.deactivate_api_keys_for_ip(ip_to_use)
+        
+        if count == 0:
+            print(f"No active API keys found for IP: {ip_to_use}")
+            raise HTTPException(status_code=404, detail="No active API key found for this IP address")
+        
+        print(f"Deleted {count} API keys for IP: {ip_to_use}")
+        
+        return {"success": True, "message": f"Deleted {count} API keys for IP: {ip_to_use}"}
+    except HTTPException:
+        # Re-raise HTTP exceptions
+        raise
+    except Exception as e:
+        err_trace = traceback.format_exc()
+        print(f"Error deleting API key: {err_trace}")
+        raise HTTPException(status_code=500, detail=f"Failed to delete API key: {str(e)}")
+
+@router.get("/api-keys/requests")
+async def get_api_key_requests(
+    request: Request, 
+    client_ip: Optional[str] = Query(None, description="Optional client IP to get requests for")
+):
+    """Get only the request logs for an IP address (for refreshing request data)"""
+    try:
+        # Get client IP
+        ip_to_use = client_ip or get_client_ip(request)
+        
+        print(f"Getting request logs for IP: {ip_to_use}")
+        
+        # Get recent requests for this IP (past hour)
+        recent_requests = await ApiKeyService.get_recent_requests(ip_to_use, minutes=60)
+        print(f"Retrieved {len(recent_requests)} recent requests for IP: {ip_to_use}")
+        
+        return {"requests": recent_requests}
+    except Exception as e:
+        err_trace = traceback.format_exc()
+        print(f"Error fetching request logs: {err_trace}")
+        raise HTTPException(status_code=500, detail=f"Failed to get request logs: {str(e)}")
+
 @router.get("/api-keys/info")
 async def get_api_key_info(
     request: Request, 
@@ -97,39 +176,3 @@ async def get_api_key_info(
         err_trace = traceback.format_exc()
         print(f"Error fetching API key info: {err_trace}")
         raise HTTPException(status_code=500, detail=f"Failed to get API key info: {str(e)}")
-
-@router.get("/test-key")
-async def test_api_key(request: Request, api_key: str = Depends(API_KEY_HEADER)):
-    """
-    Test endpoint to verify API key is working properly.
-    Returns information about the key and its rate limit status.
-    """
-    # Get client IP using the utility function
-    ip_to_use = get_client_ip(request)
-    endpoint = "/auth/test-key"
-    
-    # Log the request
-    await ApiKeyService.log_request(ip_to_use, api_key, endpoint)
-    
-    # Validate API key
-    is_valid = await ApiKeyService.validate_api_key(api_key, ip_to_use)
-    if not is_valid:
-        print(f"Test endpoint: Invalid API key: {api_key} for IP: {ip_to_use}")
-        raise HTTPException(status_code=403, detail="Invalid API key for this IP address")
-    
-    # Get request count for rate limiting
-    request_count = await ApiKeyService.get_request_count(ip_to_use, api_key, minutes=60)
-    
-    # Check if this is the admin API key
-    admin_key = getattr(settings, 'API_KEY', None)
-    is_admin_key = admin_key and api_key == admin_key
-    
-    return {
-        "status": "success",
-        "message": "API key is valid",
-        "ip_address": ip_to_use,
-        "requests_last_hour": request_count,
-        "is_admin_key": is_admin_key,
-        "rate_limit": "unlimited" if is_admin_key else "10 requests per hour",
-        "remaining_requests": "unlimited" if is_admin_key else max(0, 10 - request_count)
-    }

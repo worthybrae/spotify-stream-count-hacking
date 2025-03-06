@@ -1,4 +1,4 @@
-// lib/api/apiKeyApi.ts
+// lib/api/authApi.ts
 import axios, { AxiosError } from 'axios';
 import { ApiKeyInfo } from '@/types/api';
 
@@ -75,6 +75,149 @@ export const createApiKey = async (): Promise<ApiKeyInfo> => {
       console.error('Status:', axiosError.response?.status);
       console.error('Data:', axiosError.response?.data);
       console.error('Headers:', axiosError.response?.headers);
+    }
+    
+    throw error;
+  }
+};
+
+/**
+ * Regenerate API key for the current user
+ * Creates a new key and deactivates the old one
+ * @returns Promise<ApiKeyInfo>
+ */
+export const regenerateApiKey = async (): Promise<ApiKeyInfo> => {
+  try {
+    console.log('Making API call to regenerate API key');
+    
+    // Get the user's real IP
+    const userIp = await getUserIp();
+    console.log('Using IP address for API key regeneration:', userIp);
+    
+    // Send the IP in the request body with regenerate flag
+    const response = await api.post('/auth/api-keys/regenerate', {
+      client_ip: userIp
+    });
+    
+    console.log('Regenerate API key raw response:', response);
+    
+    if (!response.data || !response.data.api_key) {
+      console.error('API returned invalid data format:', response.data);
+      throw new Error('Invalid response format from API');
+    }
+    
+    // Convert dates to proper format if needed
+    if (response.data.created_at && typeof response.data.created_at === 'string') {
+      response.data.created_at = new Date(response.data.created_at).toISOString();
+    }
+    
+    // Store the API key in localStorage for persistence
+    try {
+      localStorage.setItem('apiKeyInfo', JSON.stringify(response.data));
+      console.log('New API key info saved to localStorage');
+    } catch (e) {
+      console.warn('Failed to save API key to localStorage:', e);
+    }
+    
+    return response.data;
+  } catch (error) {
+    console.error('Error regenerating API key:', error);
+    
+    // Additional detailed logging for Axios errors
+    if (axios.isAxiosError(error)) {
+      const axiosError = error as AxiosError;
+      console.error('Status:', axiosError.response?.status);
+      console.error('Data:', axiosError.response?.data);
+      console.error('Headers:', axiosError.response?.headers);
+    }
+    
+    throw error;
+  }
+};
+
+/**
+ * Delete API key for the current user
+ * @returns Promise<{success: boolean}>
+ */
+export const deleteApiKey = async (): Promise<{success: boolean}> => {
+  try {
+    console.log('Making API call to delete API key');
+    
+    // Get the user's real IP
+    const userIp = await getUserIp();
+    console.log('Using IP address for API key deletion:', userIp);
+    
+    // Call the delete endpoint with the IP
+    const response = await api.delete(`/auth/api-keys?client_ip=${encodeURIComponent(userIp)}`);
+    
+    console.log('Delete API key response:', response);
+    
+    // Clear the API key from localStorage
+    localStorage.removeItem('apiKeyInfo');
+    
+    return { success: true };
+  } catch (error) {
+    console.error('Error deleting API key:', error);
+    
+    // Additional detailed logging for Axios errors
+    if (axios.isAxiosError(error)) {
+      const axiosError = error as AxiosError;
+      console.error('Status:', axiosError.response?.status);
+      console.error('Data:', axiosError.response?.data);
+      console.error('Headers:', axiosError.response?.headers);
+    }
+    
+    throw error;
+  }
+};
+
+/**
+ * Refresh request logs for the current user
+ * @returns Promise<ApiKeyInfo>
+ */
+export const refreshRequestLogs = async (): Promise<ApiKeyInfo> => {
+  try {
+    console.log('Refreshing request logs');
+    
+    // Get the user's real IP
+    const userIp = await getUserIp();
+    console.log('Using IP address for request logs refresh:', userIp);
+    
+    // Send the IP as a query parameter
+    const response = await api.get(`/auth/api-keys/requests?client_ip=${encodeURIComponent(userIp)}`);
+    
+    console.log('Request logs refresh response:', response);
+    
+    if (!response.data) {
+      console.error('API returned invalid data format:', response.data);
+      throw new Error('Invalid response format from API');
+    }
+    
+    // Get current API key info
+    const storedData = localStorage.getItem('apiKeyInfo');
+    if (storedData) {
+      try {
+        const parsedData = JSON.parse(storedData);
+        // Update only the requests part
+        parsedData.requests = response.data.requests;
+        
+        // Save the updated data back to localStorage
+        localStorage.setItem('apiKeyInfo', JSON.stringify(parsedData));
+        
+        return parsedData;
+      } catch (e) {
+        console.warn('Error updating localStorage with new request logs:', e);
+      }
+    }
+    
+    return response.data;
+  } catch (error) {
+    console.error('Error refreshing request logs:', error);
+    
+    if (axios.isAxiosError(error)) {
+      const axiosError = error as AxiosError;
+      console.error('Status:', axiosError.response?.status);
+      console.error('Data:', axiosError.response?.data);
     }
     
     throw error;
