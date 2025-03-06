@@ -17,9 +17,9 @@ const RequestStatsTable: React.FC<RequestStatsTableProps> = ({ requests }) => {
   }
 
   return (
-    <div className="rounded-md border border-white/10 overflow-hidden">
+    <div className="rounded-md border border-white/10 flex-1 overflow-y-auto">
       <Table>
-        <TableHeader className="bg-black/30 border">
+        <TableHeader className="bg-black/30 sticky top-0">
           <TableRow className="hover:bg-transparent">
             <TableHead className="text-white font-medium w-1/3">Timestamp</TableHead>
             <TableHead className="text-white font-medium w-2/3">Endpoint</TableHead>

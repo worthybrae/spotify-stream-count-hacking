@@ -26,7 +26,7 @@ export function ApiPage() {
   }, []);
 
   return (
-    <div className="relative">
+    <div className="relative h-full">
       <main className="container mx-auto px-4 pt-24 pb-16">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center h-full">
           {/* Left column - heading and description, similar to home page */}
@@ -41,7 +41,7 @@ export function ApiPage() {
           
           {/* Right column - Single API card with all info */}
           <div className="w-full">
-            <Card className="p-4 md:p-6 bg-black/40 border-white/10 h-full">
+            <Card className="p-4 md:p-6 bg-black/40 border-white/10  max-h-[calc(100vh-16rem)]">
               <h2 className="text-2xl font-bold text-white mb-6">API Access</h2>
               
               {/* IP Address Section */}
