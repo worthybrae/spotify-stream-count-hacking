@@ -227,32 +227,20 @@ fetchAlbum();`)}
                       {
                         "track_id": "2up3OPMp9Tb4dAKM2erWXQ",
                         "name": "Speak to Me",
+                        "day": "2025-03-08",
+                        "playcount": 25672304
+                      },
+                      {
+                        "track_id": "2up3OPMp9Tb4dAKM2erWXQ",
+                        "name": "Speak to Me",
                         "day": "2025-03-09",
-                        "playcount": 25683415,
-                        "streamHistory": [
-                          {"date": "2025-03-02", "streams": 25638290},
-                          {"date": "2025-03-03", "streams": 25648982},
-                          {"date": "2025-03-04", "streams": 25659104},
-                          {"date": "2025-03-05", "streams": 25669325},
-                          {"date": "2025-03-06", "streams": 25676803},
-                          {"date": "2025-03-07", "streams": 25681090},
-                          {"date": "2025-03-08", "streams": 25683415}
-                        ]
+                        "playcount": 25683415
                       },
                       {
                         "track_id": "0vFOzaXqZHahrZp6enQwQb",
                         "name": "Breathe (In the Air)",
                         "day": "2025-03-09",
-                        "playcount": 78934526,
-                        "streamHistory": [
-                          {"date": "2025-03-02", "streams": 78798124},
-                          {"date": "2025-03-03", "streams": 78834576},
-                          {"date": "2025-03-04", "streams": 78865432},
-                          {"date": "2025-03-05", "streams": 78890651},
-                          {"date": "2025-03-06", "streams": 78913587},
-                          {"date": "2025-03-07", "streams": 78926135},
-                          {"date": "2025-03-08", "streams": 78934526}
-                        ]
+                        "playcount": 78934526
                       }
                     ],
                     "total_streams": 104617941

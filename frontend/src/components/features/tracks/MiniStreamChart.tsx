@@ -145,7 +145,7 @@ const MiniStreamChart: React.FC<MiniStreamChartProps> = ({ track }) => {
     if (active && payload && payload.length) {
       const data = payload[0].payload;
       return (
-        <div className="bg-black/80 px-2 py-1 rounded text-xs border border-white/10">
+        <div className="bg-black/60 px-2 py-1 rounded text-xs border border-white/10">
           <p className="text-white/90">{new Date(data.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</p>
           <div className="flex flex-col gap-1 mt-1">
             <p className="text-emerald-400 font-medium">+{formatNumber(data.dailyStreams)} new streams</p>
@@ -172,13 +172,14 @@ const MiniStreamChart: React.FC<MiniStreamChartProps> = ({ track }) => {
               domain={yAxisDomain}
               hide={true} // Hide the axis but use it for consistent scaling
             />
-            <Tooltip content={<CustomTooltip />} />
+            <Tooltip content={<CustomTooltip />}/>
             <Line 
               type="monotone" 
               dataKey="dailyStreams" 
               stroke="#10b981" 
               strokeWidth={2} 
               dot={false}
+              
               activeDot={{ r: 4, stroke: "#10b981", strokeWidth: 1, fill: "#10b981" }}
               isAnimationActive={false}
             />
