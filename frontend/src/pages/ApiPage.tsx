@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import ApiKeyManagement from '@/components/features/api/ApiKeyManagement';
 
 export function ApiPage() {
@@ -39,7 +40,13 @@ export function ApiPage() {
             <div className="h-full flex items-center">
             <div className="w-full" style={{ maxHeight: contentHeight }}>
             <Card className="p-4 md:p-6 bg-black/40 border-white/10 overflow-hidden">
-            <h2 className="text-2xl font-bold text-white mb-6">API Access</h2>
+            <div className='flex justify-between mb-4 items-start'>
+              <h2 className="text-2xl font-bold text-white mb-4">API Access</h2>
+              <Button 
+              onClick={() => window.open('https://api.streamclout.io/docs', '_blank')}
+              className="bg-white/10 hover:bg-white/80 text-white hover:text-black/80"
+              >Interactive Docs</Button>
+            </div>
             
             {/* IP Address Section */}
             <div className="mb-6">

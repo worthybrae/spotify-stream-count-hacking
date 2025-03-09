@@ -27,7 +27,14 @@ export function DocsPage() {
       {/* Right column - API docs card */}
       <div className="h-full flex items-start">
         <Card className="w-full p-4 md:p-6 bg-black/40 border-white/10 overflow-scroll max-h-[calc(100vh-12rem)]">
-          <h2 className="text-2xl font-bold text-white mb-4">Endpoints</h2>
+          <div className='flex justify-between mb-4 items-start'>
+            <h2 className="text-2xl font-bold text-white mb-4">Endpoints</h2>
+            <Button 
+            onClick={() => window.open('https://api.streamclout.io/docs', '_blank')}
+            className="bg-white/10 hover:bg-white/80 text-white hover:text-black/80"
+            >Interactive Docs</Button>
+          </div>
+          
 
           {/* Custom endpoint toggle */}
           <div className="flex mb-6 w-full">
@@ -103,12 +110,7 @@ export function DocsPage() {
                   >
                     Python
                   </button>
-                  <button
-                    className={`px-3 py-1 text-xs rounded ${activeEndpoint === 'album-typescript' ? 'bg-emerald-900/70 text-white' : 'bg-white/10 text-white/80 hover:bg-white/20'}`}
-                    onClick={() => setActiveEndpoint('album-typescript')}
-                  >
-                    TypeScript
-                  </button>
+                  
                 </div>
                 
                 {/* cURL Example */}
@@ -163,88 +165,7 @@ print(data)`)}
                   </div>
                 )}
                 
-                {/* TypeScript Example */}
-                {activeEndpoint === 'album-typescript' && (
-                  <div className="bg-gray-900 p-3 rounded-md font-mono text-sm text-white/80 mb-2 relative group">
-                    <pre className="whitespace-pre-wrap">
-                      {`// Using fetch API
-const fetchAlbum = async () => {
-  const response = await fetch(
-    'https://api.streamclout.io/albums/4LH4d3cOWNNsVw41Gqt2kv', 
-    {
-      headers: {
-        'X-API-Key': 'your_api_key_here'
-      }
-    }
-  );
-  
-  const data = await response.json();
-  console.log(data);
-};
-
-fetchAlbum();`}
-                    </pre>
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      className="absolute top-2 right-2 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white/10"
-                      onClick={() => copyToClipboard(`// Using fetch API
-const fetchAlbum = async () => {
-  const response = await fetch(
-    'https://api.streamclout.io/albums/4LH4d3cOWNNsVw41Gqt2kv', 
-    {
-      headers: {
-        'X-API-Key': 'your_api_key_here'
-      }
-    }
-  );
-  
-  const data = await response.json();
-  console.log(data);
-};
-
-fetchAlbum();`)}
-                    >
-                      <Copy size={12} />
-                    </Button>
-                  </div>
-                )}
-              </div>
-
-              <div>
-                <h4 className="text-white font-medium mb-2">Example Response</h4>
-                <div className="bg-gray-900 p-3 rounded-md font-mono text-sm text-white/80 mb-2 overflow-auto max-h-72">
-                  <pre>{JSON.stringify({
-                    "album": {
-                      "album_id": "4LH4d3cOWNNsVw41Gqt2kv",
-                      "album_name": "The Dark Side of the Moon",
-                      "artist_id": "0k17h0D3J5VfsdmQ1iZtE9",
-                      "artist_name": "Pink Floyd",
-                      "cover_art": "https://i.scdn.co/image/ab67616d0000b273ea7caaff71dea1051d49b2fe",
-                      "release_date": "1973-03-01"
-                    },
-                    "tracks": [
-                      {
-                        "track_id": "2up3OPMp9Tb4dAKM2erWXQ",
-                        "name": "Speak to Me",
-                        "day": "2025-03-08",
-                        "playcount": 25672304
-                      },
-                      {
-                        "track_id": "2up3OPMp9Tb4dAKM2erWXQ",
-                        "name": "Speak to Me",
-                        "day": "2025-03-09",
-                        "playcount": 25683415
-                      },
-                      {
-                        "track_id": "0vFOzaXqZHahrZp6enQwQb",
-                        "name": "Breathe (In the Air)",
-                        "day": "2025-03-09",
-                        "playcount": 78934526
-                      }
-                    ]
-                  }, null, 2)}</pre>
-                </div>
+                
               </div>
               
               <div className="h-4"></div>
@@ -300,12 +221,7 @@ fetchAlbum();`)}
                   >
                     Python
                   </button>
-                  <button
-                    className={`px-3 py-1 text-xs rounded ${activeEndpoint === 'search-typescript' ? 'bg-emerald-900/70 text-white' : 'bg-white/10 text-white/80 hover:bg-white/20'}`}
-                    onClick={() => setActiveEndpoint('search-typescript')}
-                  >
-                    TypeScript
-                  </button>
+                  
                 </div>
                 
                 {/* cURL Example */}
@@ -362,79 +278,10 @@ print(data)`)}
                   </div>
                 )}
                 
-                {/* TypeScript Example */}
-                {activeEndpoint === 'search-typescript' && (
-                  <div className="bg-gray-900 p-3 rounded-md font-mono text-sm text-white/80 mb-2 relative group">
-                    <pre className="whitespace-pre-wrap">
-                      {`// Using fetch API
-const searchAlbums = async () => {
-  const query = encodeURIComponent('Dark Side of the Moon');
-  const response = await fetch(
-    \`https://api.streamclout.io/search/albums?query=\${query}\`, 
-    {
-      headers: {
-        'X-API-Key': 'your_api_key_here'
-      }
-    }
-  );
-  
-  const data = await response.json();
-  console.log(data);
-};
-
-searchAlbums();`}
-                    </pre>
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      className="absolute top-2 right-2 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white/10"
-                      onClick={() => copyToClipboard(`// Using fetch API
-const searchAlbums = async () => {
-  const query = encodeURIComponent('Dark Side of the Moon');
-  const response = await fetch(
-    \`https://api.streamclout.io/search/albums?query=\${query}\`, 
-    {
-      headers: {
-        'X-API-Key': 'your_api_key_here'
-      }
-    }
-  );
-  
-  const data = await response.json();
-  console.log(data);
-};
-
-searchAlbums();`)}
-                    >
-                      <Copy size={12} />
-                    </Button>
-                  </div>
-                )}
+                
               </div>
 
-              <div>
-                <h4 className="text-white font-medium mb-2">Example Response</h4>
-                <div className="bg-gray-900 p-3 rounded-md font-mono text-sm text-white/80 mb-2 overflow-auto max-h-72">
-                  <pre>{JSON.stringify([
-                    {
-                      "album_id": "4LH4d3cOWNNsVw41Gqt2kv",
-                      "album_name": "The Dark Side of the Moon",
-                      "artist_name": "Pink Floyd",
-                      "artist_id": "0k17h0D3J5VfsdmQ1iZtE9",
-                      "cover_art": "https://i.scdn.co/image/ab67616d0000b273ea7caaff71dea1051d49b2fe",
-                      "release_date": "1973-03-01"
-                    },
-                    {
-                      "album_id": "2WT1pbYjLJciAR26yMebkH",
-                      "album_name": "The Dark Side of the Moon [50th Anniversary]",
-                      "artist_name": "Pink Floyd",
-                      "artist_id": "0k17h0D3J5VfsdmQ1iZtE9",
-                      "cover_art": "https://i.scdn.co/image/ab67616d0000b273502b599930aa7536cf83528d",
-                      "release_date": "1973-03-01"
-                    }
-                  ], null, 2)}</pre>
-                </div>
-              </div>
+              
             </div>
           )}
         </Card>
