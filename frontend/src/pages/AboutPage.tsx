@@ -11,7 +11,7 @@ export function AboutPage() {
       <div className="items-center h-full mb-8 md:mb-0 hidden md:flex">
         <div className="md:mt-0 md:mb-0">
           <h1 className="text-5xl md:text-6xl lg:text-7xl text-center md:text-left font-bold text-white mb-3">
-            Get To Know Us
+            About Us
           </h1>
           <p className="text-sm text-center md:text-left md:text-lg text-white/60">
             Understand how streamclout.io works

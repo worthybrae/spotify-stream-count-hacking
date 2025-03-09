@@ -16,7 +16,7 @@ export function DocsPage() {
       <div className="flex-col justify-center h-full md:mb-0 hidden md:flex sticky top-0">
         <div>
           <h1 className="text-5xl md:text-6xl lg:text-7xl text-left font-bold text-white mb-3">
-            API Documentation
+            API Docs
           </h1>
           <p className="text-sm text-left md:text-lg text-white/60">
             Integrate Spotify streaming data into your applications
@@ -50,7 +50,7 @@ export function DocsPage() {
                 }`}
                 onClick={() => setActiveEndpoint('album')}
               >
-                Get Album Streaming Data
+                Fetch Album
               </button>
             </div>
           </div>
