@@ -240,26 +240,33 @@ export const getApiKeyInfo = async (): Promise<ApiKeyInfo | null> => {
         // As a double-check, verify with the server if we have local data
         // This will update our data with the latest info as well
         try {
-          console.log('Verifying API key info with server...');
-          
-          // Get the user's real IP
-          const userIp = await getUserIp();
-          console.log('Using IP address for API key lookup:', userIp);
-          
-          // Send the IP as a query parameter
-          const response = await api.get(`/auth/api-keys/info?client_ip=${encodeURIComponent(userIp)}`);
-          
-          console.log('Server API key info:', response.data);
-          
-          // Update localStorage with the latest data
-          localStorage.setItem('apiKeyInfo', JSON.stringify(response.data));
-          
-          return response.data;
-        } catch (serverError) {
-          // If server verification fails but we have local data, use it
-          console.warn('Server verification failed, using cached data:', serverError);
-          return parsedData;
-        }
+            console.log('Verifying API key info with server...');
+            
+            // Get the user's real IP
+            const userIp = await getUserIp();
+            console.log('Using IP address for API key lookup:', userIp);
+            
+            // Send the IP as a query parameter
+            const response = await api.get(`/auth/api-keys/info?client_ip=${encodeURIComponent(userIp)}`);
+            
+            console.log('Server API key info:', response.data);
+            
+            // Update localStorage with the latest data
+            localStorage.setItem('apiKeyInfo', JSON.stringify(response.data));
+            
+            return response.data;
+          } catch (serverError) {
+            // Check if this is a 404 error (no API key found)
+            if (axios.isAxiosError(serverError) && serverError.response?.status === 404) {
+              console.log('No API key found on server, clearing localStorage');
+              localStorage.removeItem('apiKeyInfo');
+              return null;
+            }
+            
+            // For other errors, use cached data if available
+            console.warn('Server verification failed, using cached data:', serverError);
+            return parsedData;
+          }
       } catch (parseError) {
         console.error('Error parsing stored API key info:', parseError);
         localStorage.removeItem('apiKeyInfo');
