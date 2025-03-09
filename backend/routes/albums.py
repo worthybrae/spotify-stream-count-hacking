@@ -160,7 +160,7 @@ async def fetch_album(
                          f"Official API error: {str(official_error)}"
         raise HTTPException(status_code=500, detail=detailed_error)
 
-@router.post("/", status_code=201)
+@router.post("/", status_code=201, include_in_schema=False)
 async def add_album(
     data: AlbumSaveRequest,
     _: str = Depends(verify_api_key)
@@ -217,7 +217,7 @@ async def add_album(
         print(f"Error adding album: {err_trace}")
         raise HTTPException(status_code=500, detail=f"Failed to save album data: {str(e)}")
 
-@router.get("/")
+@router.get("/", include_in_schema=False)
 async def get_all_albums(
     limit: int = Query(default=50, le=100),
     offset: int = Query(default=0),

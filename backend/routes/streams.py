@@ -6,7 +6,7 @@ from models import StreamsAddRequest
 from services.database import get_db
 from routes.dependencies import verify_api_key, get_database_service
 
-router = APIRouter()
+router = APIRouter(include_in_schema=False)
 
 @router.post("/", status_code=201)
 async def add_streams(

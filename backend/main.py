@@ -116,7 +116,7 @@ async def health_check():
     }
 
 # Manual trigger endpoint for the scheduled task
-@app.post("/admin/trigger-update", tags=["Admin"])
+@app.post("/admin/trigger-update", tags=["Admin"], include_in_schema=False)
 async def trigger_update():
     """
     Manually trigger the stream count update job.
@@ -134,7 +134,7 @@ async def trigger_update():
         return {"status": "error", "message": str(e)}
 
 # Add an endpoint to check the status of the last update
-@app.get("/admin/last-update", tags=["Admin"])
+@app.get("/admin/last-update", tags=["Admin"], include_in_schema=False)
 async def get_last_update():
     """
     Get information about the last update run.

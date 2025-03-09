@@ -7,7 +7,7 @@ from typing import Optional
 from pydantic import BaseModel
 from config import settings
 
-router = APIRouter()
+router = APIRouter(include_in_schema=False)
 API_KEY_HEADER = APIKeyHeader(name="X-API-Key")
 
 # Define request model for creating API keys
