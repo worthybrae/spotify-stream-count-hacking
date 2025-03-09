@@ -2,6 +2,7 @@ import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import HomePage from './pages/HomePage';
 import { AboutPage } from './pages/AboutPage';
 import { ApiPage } from './pages/ApiPage';
+import DocsPage from './pages/DocsPage';
 import MainLayout from './components/layout/MainLayout';
 import RouteTracker from './components/utils/RouteTracker';
 
@@ -32,6 +33,10 @@ const router = createBrowserRouter([
       {
         path: '/api',
         element: <ApiPage />
+      },
+      {
+        path: '/docs',
+        element: <DocsPage />
       }
     ]
   }

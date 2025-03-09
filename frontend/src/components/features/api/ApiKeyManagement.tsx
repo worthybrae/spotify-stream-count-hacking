@@ -8,7 +8,6 @@ import {
   regenerateApiKey, 
   deleteApiKey
 } from '@/lib/api/authApi';
-import RequestStatsTable from './RequestStatsTable';
 import { ApiKeyInfo } from '@/types/api';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 
@@ -245,23 +244,7 @@ const ApiKeyManagement = () => {
         )}
       </div>
 
-      {/* Request History Section */}
-<div className="rounded-lg">
-  <div className="flex items-center justify-between mb-4">
-    <h2 className="text-lg text-white">Requests</h2>
-    
-  </div>
-  
-  <div className="h-64 overflow-y-scroll overflow-x-hidden"> {/* Added fixed height container */}
-    {apiKeyInfo?.requests ? (
-      <RequestStatsTable requests={apiKeyInfo.requests}/>
-    ) : (
-      <div className="text-sm text-white/60 text-center py-6 bg-black/20 rounded-md">
-        No requests in the past hour
-      </div>
-    )}
-  </div>
-</div>
+
     </div>
   );
 };

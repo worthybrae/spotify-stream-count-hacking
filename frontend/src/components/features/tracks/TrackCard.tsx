@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Play, DollarSign } from 'lucide-react';
+import { Play, DollarSign, CalendarSync } from 'lucide-react';
 import { formatNumber, calculateRevenue } from '@/lib/utils/formatters';
 import { AlbumInfo, GroupedTrack } from '@/types/api';
 import MiniStreamChart from './MiniStreamChart';
@@ -52,8 +52,8 @@ const TrackCard: React.FC<TrackCardProps> = ({ track, onClick }) => {
         <div className="w-1/4 mr-2">
           <h3 className="text-base font-medium text-white mb-1 truncate">{track.name}</h3>
           <div className="flex items-center text-xs text-white/60">
-            Updated @&nbsp;
-            <span>{lastStreamDate}</span>
+          <CalendarSync className="h-3 w-3 text-emerald-400 mr-1" />
+          <span className='text-emerald-400'>{lastStreamDate}</span>
           </div>
         </div>
         
@@ -109,8 +109,9 @@ const TrackCard: React.FC<TrackCardProps> = ({ track, onClick }) => {
           {/* Left side - Track title and date */}
           <div className="w-1/2 pr-2">
             <h3 className="text-base font-medium text-white truncate">{track.name}</h3>
-            <div className="text-xs text-white/60">
-              Updated @ {lastStreamDate}
+            <div className="text-xs text-white/60 flex items-center">
+                <CalendarSync className="h-3 w-3 text-emerald-400 mr-1" />
+                <span className='text-emerald-400'>{lastStreamDate}</span>
             </div>
           </div>
           

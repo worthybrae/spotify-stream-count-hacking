@@ -49,7 +49,7 @@ def run_update_stream_counts():
 # Set up the scheduler
 scheduler = BackgroundScheduler()
 # Run at 10PM UTC (5PM EST) to match your GitHub Actions schedule
-trigger = CronTrigger(hour=22, minute=0)
+trigger = CronTrigger(hour=2, minute=0)
 # Use the non-async wrapper instead of the coroutine directly
 scheduler.add_job(run_update_stream_counts, trigger, id='update_stream_counts')
 

@@ -43,13 +43,9 @@ async def verify_api_key(request: Request, api_key: str = Depends(API_KEY_HEADER
         client_ip = get_client_ip(request)
         endpoint = request.url.path
         
-        print(f"Verifying API key for IP: {client_ip}, endpoint: {endpoint}")
-        print(f"Received API key: {api_key}")
-        
         # IMPORTANT: First check if this is the admin API key
         # Skip database validation for admin key
         if api_key == settings.API_KEY:
-            print(f"✅ Admin key validation passed for endpoint: {endpoint}")
             try:
                 # Still try to log the request, but don't fail if it doesn't work
                 await ApiKeyService.log_request(client_ip, api_key, endpoint)
@@ -69,17 +65,16 @@ async def verify_api_key(request: Request, api_key: str = Depends(API_KEY_HEADER
         # First get the API key for this IP to make debugging easier
         ip_key_info = await ApiKeyService.get_api_key_for_ip(client_ip)
         if ip_key_info:
-            print(f"Found stored API key for IP {client_ip}: {ip_key_info['api_key']}")
             if ip_key_info['api_key'] != api_key:
-                print(f"❌ API key mismatch: Provided {api_key} != Stored {ip_key_info['api_key']}")
+                print(f"❌ API key mismatch")
         else:
-            print(f"❌ No API key found for IP: {client_ip}")
+            print(f"❌ No API key found for IP")
         
         # Validate API key
         is_valid = await ApiKeyService.validate_api_key(api_key, client_ip)
         
         if not is_valid:
-            print(f"❌ Invalid API key: {api_key} for IP: {client_ip}")
+            print(f"❌ Invalid API key")
             raise HTTPException(status_code=403, detail="Invalid API key")
         
         # Get request count for rate limiting

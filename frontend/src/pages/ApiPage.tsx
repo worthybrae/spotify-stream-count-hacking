@@ -24,13 +24,13 @@ export function ApiPage() {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center h-full">
             {/* Left column - heading and description (matches home page styling) */}
-            <div className="flex items-center h-full mb-8 md:mb-0">
-              <div className='mt-8 mb-4 md:mt-0 md:mb-0'>
+            <div className="items-center h-full md:mb-0 hidden md:flex">
+              <div className='md:mt-0 md:mb-0'>
                 <h1 className="text-5xl md:text-6xl lg:text-7xl text-center md:text-left font-bold text-white mb-3">
                   Access Spotify Data Via API
                 </h1>
                 <p className="text-sm text-center md:text-left md:text-lg text-white/60 ">
-                  Programatically access historical spotify streaming data
+                  Get daily spotify streaming data using code
                 </p>
               </div>
             </div>

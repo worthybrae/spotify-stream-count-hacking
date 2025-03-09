@@ -30,6 +30,7 @@ const MainLayout = () => {
             <Link to="/" className="text-lg font-medium text-white">streamclout.io</Link>
             <nav className="flex gap-6">
               <Link to="/api" className="text-sm text-white/70 hover:text-white transition-colors">api</Link>
+              <Link to="/docs" className="text-sm text-white/70 hover:text-white transition-colors">docs</Link>
               <Link to="/about" className="text-sm text-white/70 hover:text-white transition-colors">about</Link>
             </nav>
           </div>
