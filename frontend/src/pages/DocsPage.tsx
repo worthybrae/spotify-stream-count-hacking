@@ -242,8 +242,7 @@ fetchAlbum();`)}
                         "day": "2025-03-09",
                         "playcount": 78934526
                       }
-                    ],
-                    "total_streams": 104617941
+                    ]
                   }, null, 2)}</pre>
                 </div>
               </div>
