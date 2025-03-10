@@ -160,7 +160,7 @@ const ApiKeyManagement = () => {
           <div className="space-y-6">
             <div className="space-y-2">
               <div className="flex flex-row gap-2 w-full items-center ">
-                <code className="flex-1 overflow-hidden p-3 text-ellipsis bg-black/30 rounded text-white font-mono text-base">
+                <code className="flex-1 overflow-hidden p-3 text-ellipsis bg-black/30 rounded text-green-400 font-mono text-base">
                   {formatApiKey(apiKeyInfo.api_key)}
                 </code>
                 <Button 

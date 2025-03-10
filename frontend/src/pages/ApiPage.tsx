@@ -51,7 +51,7 @@ export function ApiPage() {
             {/* IP Address Section */}
             <div className="mb-6">
               <div className="text-lg text-white mb-2">IP Address</div>
-              <code className="bg-black/30 px-3 py-2 rounded text-white font-mono block">
+              <code className="bg-black/30 px-3 py-2 rounded font-mono block text-green-400">
                 {ipAddress}
               </code>
             </div>
