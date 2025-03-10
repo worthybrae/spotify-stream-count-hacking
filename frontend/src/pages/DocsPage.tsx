@@ -42,7 +42,7 @@ export function DocsPage() {
               <button
                 className={`py-2 px-4 rounded text-sm transition-colors ${
                   activeEndpoint.startsWith('search') 
-                    ? 'bg-green-950 text-white'
+                    ? 'bg-emerald-800 text-white'
                     : 'text-white/60 hover:text-white/80'
                 }`}
                 onClick={() => setActiveEndpoint('search')}
@@ -52,7 +52,7 @@ export function DocsPage() {
               <button
                 className={`py-2 px-4 rounded text-sm transition-colors ${
                   activeEndpoint.startsWith('album') 
-                    ? 'bg-green-950 text-white'
+                    ? 'bg-emerald-800 text-white'
                     : 'text-white/60 hover:text-white/80'
                 }`}
                 onClick={() => setActiveEndpoint('album')}
@@ -67,7 +67,7 @@ export function DocsPage() {
             <div className="space-y-4">
               <div className="flex justify-between items-center">
                 <h3 className="text-xl font-semibold text-white">Get Album Details</h3>
-                <div className="bg-gray-800 text-green-400 px-3 py-1 rounded font-mono text-sm">
+                <div className="bg-gray-800 text-emerald-400 px-3 py-1 rounded font-mono text-sm">
                   GET /albums/{'{album_id}'}
                 </div>
               </div>
@@ -172,7 +172,7 @@ print(data)`)}
             <div className="space-y-4">
               <div className="flex justify-between items-center">
                 <h3 className="text-xl font-semibold text-white">Search Albums</h3>
-                <div className="bg-gray-800 text-green-400 px-3 py-1 rounded font-mono text-sm">
+                <div className="bg-gray-800 text-emerald-400 px-3 py-1 rounded font-mono text-sm">
                   GET /search/albums
                 </div>
               </div>
