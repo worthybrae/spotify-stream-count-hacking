@@ -23,12 +23,12 @@ export function AboutPage() {
       <div className="h-full flex items-center">
         <div className="w-full" style={{ maxHeight: contentHeight }}>
           <Card className="p-4 md:p-6 bg-black/40 border-white/10 overflow-auto">
-            <h2 className="text-2xl text-white">FAQs</h2>
+            <h2 className="text-2xl font-bold text-white mb-4">FAQs</h2>
             
             <Accordion type="single" collapsible className="w-full">
               {/* Mission as an FAQ item */}
               <AccordionItem value="mission">
-                <AccordionTrigger className="text-lg font-medium text-white hover:text-white/90">
+                <AccordionTrigger className="text-lg font-light text-white hover:text-white/90">
                   What is streamclout.io's mission?
                 </AccordionTrigger>
                 <AccordionContent className="text-white/80">
@@ -49,7 +49,7 @@ export function AboutPage() {
               
               {/* Objective as an FAQ item */}
               <AccordionItem value="objective">
-                <AccordionTrigger className="text-lg font-medium text-white hover:text-white/90">
+                <AccordionTrigger className="text-lg font-light text-white hover:text-white/90">
                   What are streamclout.io's objectives?
                 </AccordionTrigger>
                 <AccordionContent className="text-white/80">
@@ -69,7 +69,7 @@ export function AboutPage() {
               
               {/* Original FAQ items */}
               <AccordionItem value="data-source">
-                <AccordionTrigger className="text-lg font-medium text-white hover:text-white/90">
+                <AccordionTrigger className="text-lg font-light text-white hover:text-white/90">
                   Where does the data come from?
                 </AccordionTrigger>
                 <AccordionContent className="text-white/80">
@@ -80,7 +80,7 @@ export function AboutPage() {
               </AccordionItem>
               
               <AccordionItem value="accuracy">
-                <AccordionTrigger className="text-lg font-medium text-white hover:text-white/90">
+                <AccordionTrigger className="text-lg font-light text-white hover:text-white/90">
                   How accurate is the data?
                 </AccordionTrigger>
                 <AccordionContent className="text-white/80">
@@ -90,7 +90,7 @@ export function AboutPage() {
               </AccordionItem>
               
               <AccordionItem value="revenue">
-                <AccordionTrigger className="text-lg font-medium text-white hover:text-white/90">
+                <AccordionTrigger className="text-lg font-light text-white hover:text-white/90">
                   How is revenue calculated?
                 </AccordionTrigger>
                 <AccordionContent className="text-white/80">
@@ -102,7 +102,7 @@ export function AboutPage() {
               </AccordionItem>
               
               <AccordionItem value="updates">
-                <AccordionTrigger className="text-lg font-medium text-white hover:text-white/90">
+                <AccordionTrigger className="text-lg font-light text-white hover:text-white/90">
                   How frequently is data updated?
                 </AccordionTrigger>
                 <AccordionContent className="text-white/80">
@@ -111,7 +111,7 @@ export function AboutPage() {
               </AccordionItem>
               
               <AccordionItem value="api-limits">
-                <AccordionTrigger className="text-lg font-medium text-white hover:text-white/90">
+                <AccordionTrigger className="text-lg font-light text-white hover:text-white/90">
                   Can I increase my API rate limits?
                 </AccordionTrigger>
                 <AccordionContent className="text-white/80">
