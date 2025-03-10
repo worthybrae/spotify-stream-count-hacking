@@ -26,7 +26,7 @@ export function DocsPage() {
       
       {/* Right column - API docs card */}
       <div className="h-full flex items-start">
-        <Card className="w-full p-4 md:p-6 bg-black/40 border-white/10 overflow-scroll max-h-[calc(100vh-12rem)]">
+        <Card className="w-full p-4 md:p-6 bg-black/40 border-white/10 overflow-auto max-h-[calc(100vh-12rem)]">
           <div className='flex justify-between mb-4 items-start'>
             <h2 className="text-2xl font-bold text-white mb-4">Endpoints</h2>
             <Button 
@@ -64,7 +64,7 @@ export function DocsPage() {
 
           {/* Get Album Details Section */}
           {(activeEndpoint === 'album' || activeEndpoint === 'album-python' || activeEndpoint === 'album-typescript') && (
-            <div className="space-y-4 overflow-auto">
+            <div className="space-y-4">
               <div className="flex justify-between items-center">
                 <h3 className="text-xl font-semibold text-white">Get Album Details</h3>
                 <div className="bg-gray-800 text-green-400 px-3 py-1 rounded font-mono text-sm">
@@ -110,13 +110,12 @@ export function DocsPage() {
                   >
                     Python
                   </button>
-                  
                 </div>
                 
-                {/* cURL Example */}
+                {/* cURL Example - Fixed overflow */}
                 {activeEndpoint === 'album' && (
                   <div className="bg-gray-900 p-3 rounded-md font-mono text-sm text-white/80 mb-2 relative group">
-                    <pre className="whitespace-pre-wrap">
+                    <pre className="whitespace-pre-wrap break-all overflow-x-hidden">
                       {`curl --request GET \\
   --url https://api.streamclout.io/albums/4LH4d3cOWNNsVw41Gqt2kv \\
   --header 'X-API-Key: your_api_key_here'`}
@@ -134,10 +133,10 @@ export function DocsPage() {
                   </div>
                 )}
                 
-                {/* Python Example */}
+                {/* Python Example - Fixed overflow */}
                 {activeEndpoint === 'album-python' && (
                   <div className="bg-gray-900 p-3 rounded-md font-mono text-sm text-white/80 mb-2 relative group">
-                    <pre className="whitespace-pre-wrap">
+                    <pre className="whitespace-pre-wrap break-all overflow-x-hidden">
                       {`import requests
 
 url = "https://api.streamclout.io/albums/4LH4d3cOWNNsVw41Gqt2kv"
@@ -164,8 +163,6 @@ print(data)`)}
                     </Button>
                   </div>
                 )}
-                
-                
               </div>
               
               <div className="h-4"></div>
@@ -174,7 +171,7 @@ print(data)`)}
 
           {/* Search Albums Section */}
           {(activeEndpoint === 'search' || activeEndpoint === 'search-python' || activeEndpoint === 'search-typescript') && (
-            <div className="space-y-4 overflow-auto max-h-[calc(100vh-12rem)]">
+            <div className="space-y-4">
               <div className="flex justify-between items-center">
                 <h3 className="text-xl font-semibold text-white">Search Albums</h3>
                 <div className="bg-gray-800 text-green-400 px-3 py-1 rounded font-mono text-sm">
@@ -221,13 +218,12 @@ print(data)`)}
                   >
                     Python
                   </button>
-                  
                 </div>
                 
-                {/* cURL Example */}
+                {/* cURL Example - Fixed overflow */}
                 {activeEndpoint === 'search' && (
                   <div className="bg-gray-900 p-3 rounded-md font-mono text-sm text-white/80 mb-2 relative group">
-                    <pre className="whitespace-pre-wrap">
+                    <pre className="whitespace-pre-wrap break-all overflow-x-hidden">
                       {`curl --request GET \\
   --url "https://api.streamclout.io/search/albums?query=Dark+Side+of+the+Moon" \\
   --header 'X-API-Key: your_api_key_here'`}
@@ -245,10 +241,10 @@ print(data)`)}
                   </div>
                 )}
                 
-                {/* Python Example */}
+                {/* Python Example - Fixed overflow */}
                 {activeEndpoint === 'search-python' && (
                   <div className="bg-gray-900 p-3 rounded-md font-mono text-sm text-white/80 mb-2 relative group">
-                    <pre className="whitespace-pre-wrap">
+                    <pre className="whitespace-pre-wrap break-all overflow-x-hidden">
                       {`import requests
 
 url = "https://api.streamclout.io/search/albums"
@@ -277,11 +273,7 @@ print(data)`)}
                     </Button>
                   </div>
                 )}
-                
-                
               </div>
-
-              
             </div>
           )}
         </Card>
