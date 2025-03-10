@@ -50,7 +50,7 @@ const MainLayout = () => {
       {/* Footer */}
       <footer className="fixed bottom-0 left-0 right-0 w-full z-50 backdrop-blur-sm">
         <div className="container mx-auto px-4">
-          <div className="flex justify-center py-2 font-bold">
+          <div className="flex justify-center py-2">
             <span className="text-xs">
               <a 
                 href="https://worthyrae.com" 
@@ -58,7 +58,7 @@ const MainLayout = () => {
                 rel="noopener noreferrer"
                 className="hover:underline text-white/60"
               >
-                by worthy
+                built by worthy
               </a>
             </span>
           </div>

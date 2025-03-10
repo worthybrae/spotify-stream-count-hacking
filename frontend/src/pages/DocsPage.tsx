@@ -72,7 +72,7 @@ export function DocsPage() {
                 </div>
               </div>
 
-              <div className="mb-2">
+              <div className="">
                 <p className="text-white/80 mb-4">
                   Get album details, all tracks, and their latest stream counts. If the album exists in the database, returns data from there. Otherwise, attempts to fetch data from Spotify.
                 </p>
@@ -164,8 +164,6 @@ print(data)`)}
                   </div>
                 )}
               </div>
-              
-              <div className="h-4"></div>
             </div>
           )}
 
