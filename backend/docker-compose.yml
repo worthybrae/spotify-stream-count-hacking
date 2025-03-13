@@ -19,6 +19,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.api
+    privileged: true
     ports:
       - "8000:8000"
     environment:
