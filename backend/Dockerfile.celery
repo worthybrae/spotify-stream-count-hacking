@@ -7,6 +7,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     curl \
     gnupg \
+    supervisor \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -50,8 +51,14 @@ RUN pip install --no-cache-dir -r requirements.txt
 RUN pip install playwright && \
     python -m playwright install --with-deps chromium
 
+# Copy supervisor configuration
+COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+
 # Copy source code
 COPY . .
 
-# Default command (overridden in docker-compose.yml)
-CMD ["celery", "-A", "celery_app", "worker", "--loglevel=info"]
+# Expose port for Flower
+EXPOSE 5555
+
+# Run supervisor to manage all processes
+CMD ["supervisord", "-n", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
