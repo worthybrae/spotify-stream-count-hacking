@@ -111,5 +111,5 @@ async def fetch_album(
     
     except Exception as unofficial_error:
         print(f"Error with unofficial API: {str(unofficial_error)}")
-        raise HTTPException(status_code=500, detail=unofficial_error)
+        raise HTTPException(status_code=500, detail=str(unofficial_error))
         
