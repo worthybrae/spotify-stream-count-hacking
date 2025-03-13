@@ -3,7 +3,7 @@ from datetime import datetime
 import secrets
 import string
 from fastapi import HTTPException
-from typing import Optional, List, Dict
+from typing import Optional, Dict
 from services.database import get_db
 from config import settings  # Import settings to access API_KEY env var
 import traceback
@@ -255,7 +255,7 @@ class ApiKeyService:
             # Don't raise to prevent failed logging from breaking the API
 
     @staticmethod
-    async def get_request_count(ip_address: str, api_key: str, minutes: int = 60) -> int:
+    async def get_request_count(ip_address: str, api_key: str) -> int:
         try:
             # Skip counting for admin key
             admin_key = getattr(settings, 'API_KEY', None)
@@ -289,19 +289,3 @@ class ApiKeyService:
             # Return a value that won't trigger rate limiting in case of DB errors
             return 0
     
-    @staticmethod
-    async def get_recent_requests(ip_address: str, minutes: int = 60) -> List[Dict]:
-        """Get recent requests from an IP address in the past X minutes"""
-        try:
-            async with get_db() as conn:
-                # Fix: use a proper interval expression
-                results = await conn.fetch(
-                    "SELECT endpoint, timestamp FROM request_logs WHERE ip_address = $1 AND timestamp > now() - INTERVAL '" + str(minutes) + " minutes' ORDER BY timestamp DESC LIMIT 10",
-                    ip_address
-                )
-                
-                return [dict(row) for row in results]
-        except Exception as e:
-            print(f"Error getting recent requests: {str(e)}")
-            print(traceback.format_exc())
-            return []

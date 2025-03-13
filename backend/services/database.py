@@ -18,7 +18,7 @@ class DatabaseService:
     """
     Service class for database operations related to albums, tracks, and streams
     """
-    
+    # Verified
     @staticmethod
     async def search_albums_by_name(query: str, limit: int = 20) -> List[Dict]:
         """
@@ -47,7 +47,7 @@ class DatabaseService:
             """, f"%{query}%", limit)
             
             return [dict(r) for r in results]
-
+    # Verified
     @staticmethod
     async def get_album_with_tracks_and_streams(album_id: str) -> Optional[Dict]:
         """
@@ -106,55 +106,7 @@ class DatabaseService:
                 "album": dict(album),
                 "tracks": [dict(t) for t in tracks]
             }
-    
-    @staticmethod
-    async def get_track_with_stream_history(track_id: str, limit: int = 30) -> Optional[Dict]:
-        """
-        Get track details with its stream count history
-        
-        Args:
-            track_id: Spotify track ID
-            limit: Maximum number of stream history records to return
-            
-        Returns:
-            Dict with track details and stream history,
-            or None if the track wasn't found
-        """
-        async with get_db() as conn:
-            # Get track details
-            track = await conn.fetchrow("""
-                SELECT 
-                    t.track_id,
-                    t.name,
-                    t.album_id,
-                    a.name as album_name,
-                    a.artist_id,
-                    a.artist_name
-                FROM tracks t
-                JOIN albums a ON t.album_id = a.album_id
-                WHERE t.track_id = $1
-            """, track_id)
-            
-            if not track:
-                return None
-                
-            # Get stream history
-            streams = await conn.fetch("""
-                SELECT 
-                    stream_id,
-                    play_count as playcount,
-                    timestamp
-                FROM streams
-                WHERE track_id = $1
-                ORDER BY timestamp DESC
-                LIMIT $2
-            """, track_id, limit)
-            
-            return {
-                "track": dict(track),
-                "streams": [dict(s) for s in streams]
-            }
-    
+    # Verified
     @staticmethod
     async def get_all_albums(limit: int = 50, offset: int = 0) -> List[Dict]:
         """
@@ -182,7 +134,7 @@ class DatabaseService:
             """, limit, offset)
             
             return [dict(r) for r in results]
-    
+    # Verified
     @staticmethod
     async def save_album(conn, album_id: str, artist_id: str, name: str, 
                        cover_art: str, release_date: datetime, artist_name: str):
@@ -193,7 +145,7 @@ class DatabaseService:
             ON CONFLICT (album_id) DO UPDATE 
             SET artist_id = $2, name = $3, cover_art = $4, release_date = $5, artist_name = $6
         """, album_id, artist_id, name, cover_art, release_date, artist_name)
-
+    # Verified
     @staticmethod
     async def batch_save_tracks(conn, tracks_data: List[Dict[str, Any]]) -> int:
         """
@@ -224,7 +176,7 @@ class DatabaseService:
         """, values)
         
         return len(values)
-
+    # Verified
     @staticmethod
     async def batch_save_stream_counts(conn, stream_data_list: List[Dict[str, Any]]) -> int:
         """
@@ -250,10 +202,11 @@ class DatabaseService:
         await conn.executemany("""
             INSERT INTO streams (track_id, play_count, album_id)
             VALUES ($1, $2, $3)
+            ON CONFLICT (track_id, play_count, album_id) DO NOTHING
         """, values)
         
         return len(values)
-
+    # Verified
     @staticmethod
     async def save_complete_album(album_data: Dict, tracks_data: List[Dict], stream_data: List[Dict]) -> Dict:
         """

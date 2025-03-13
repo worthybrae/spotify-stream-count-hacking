@@ -36,20 +36,11 @@ class StreamUpdateService:
                     album_id = album['album_id']
                     
                     # Prepare batch data structures
-                    tracks_batch = []
                     streams_batch = []
                     
                     # Process each track
                     for track in album_data.tracks:
                         try:
-                            # Prepare track data for batch saving
-                            tracks_batch.append({
-                                'track_id': track.track_id,
-                                'name': track.name,
-                                'artist_id': album['artist_id'],
-                                'album_id': album_id
-                            })
-                            
                             # Prepare stream data for batch saving
                             streams_batch.append({
                                 'track_id': track.track_id,
@@ -63,34 +54,6 @@ class StreamUpdateService:
                             error_count += 1
                             print(f"Error processing track {track.track_id}: {str(e)}")
                             continue
-                    
-                    # Update album info (in case anything has changed)
-                    release_date = datetime.now()
-                    if hasattr(album_data, "release_date") and album_data.release_date:
-                        try:
-                            release_date = datetime.strptime(album_data.release_date, "%Y-%m-%d")
-                        except Exception as e:
-                            print(f"Error parsing release date: {e}")
-                    
-                    cover_art = ""
-                    if hasattr(album_data, "cover_art") and album_data.cover_art:
-                        cover_art = album_data.cover_art
-                    
-                    # Update album info
-                    await DatabaseService.save_album(
-                        conn,
-                        album_id=album_id,
-                        artist_id=album['artist_id'],
-                        name=album['album_name'],
-                        cover_art=cover_art,
-                        release_date=release_date,
-                        artist_name=album['artist_name']
-                    )
-                    
-                    # Batch save tracks and streams
-                    if tracks_batch:
-                        await DatabaseService.batch_save_tracks(conn, tracks_batch)
-                        print(f"Updated {len(tracks_batch)} tracks for album: {album['album_name']}")
                     
                     if streams_batch:
                         await DatabaseService.batch_save_stream_counts(conn, streams_batch)

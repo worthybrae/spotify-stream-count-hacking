@@ -1,11 +1,10 @@
 # routes/auth.py
-from fastapi import APIRouter, HTTPException, Request, Depends, Header, Query
+from fastapi import APIRouter, HTTPException, Request, Query
 from services.auth import ApiKeyService
 from fastapi.security.api_key import APIKeyHeader
 import traceback
 from typing import Optional
 from pydantic import BaseModel
-from config import settings
 
 router = APIRouter(include_in_schema=False)
 API_KEY_HEADER = APIKeyHeader(name="X-API-Key")
@@ -119,28 +118,6 @@ async def delete_api_key(
         print(f"Error deleting API key: {err_trace}")
         raise HTTPException(status_code=500, detail=f"Failed to delete API key: {str(e)}")
 
-@router.get("/api-keys/requests")
-async def get_api_key_requests(
-    request: Request, 
-    client_ip: Optional[str] = Query(None, description="Optional client IP to get requests for")
-):
-    """Get only the request logs for an IP address (for refreshing request data)"""
-    try:
-        # Get client IP
-        ip_to_use = client_ip or get_client_ip(request)
-        
-        print(f"Getting request logs for IP: {ip_to_use}")
-        
-        # Get recent requests for this IP (past hour)
-        recent_requests = await ApiKeyService.get_recent_requests(ip_to_use, minutes=60)
-        print(f"Retrieved {len(recent_requests)} recent requests for IP: {ip_to_use}")
-        
-        return {"requests": recent_requests}
-    except Exception as e:
-        err_trace = traceback.format_exc()
-        print(f"Error fetching request logs: {err_trace}")
-        raise HTTPException(status_code=500, detail=f"Failed to get request logs: {str(e)}")
-
 @router.get("/api-keys/info")
 async def get_api_key_info(
     request: Request, 
@@ -161,12 +138,8 @@ async def get_api_key_info(
         
         print(f"Found API key for IP: {ip_to_use}")
         
-        # Get recent requests for this IP (past hour)
-        recent_requests = await ApiKeyService.get_recent_requests(ip_to_use, minutes=60)
-        print(f"Retrieved {len(recent_requests)} recent requests for IP: {ip_to_use}")
-        
         # Include request data with the API key info
-        api_key_info['requests'] = recent_requests
+        api_key_info['requests'] = []
         
         return api_key_info
     except HTTPException:

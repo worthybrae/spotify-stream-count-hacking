@@ -10,18 +10,18 @@ export const featuresData = [
   },
   {
     icon: <BarChart3 className="h-5 w-5 text-purple-400" />,
-    title: "Daily Updates",
-    description: "Fresh streaming data every 24 hours"
+    title: "Daily Refresh",
+    description: "Updated stream counts every day"
   },
   {
     icon: <KeyRound className="h-5 w-5 text-pink-400" />,
     title: "Secret Data Access",
-    description: "Access Spotify's internal data"
+    description: "Access Spotify's non-public data"
   },
   {
     icon: <Clock className="h-5 w-5 text-green-400" />,
     title: "Historical Data",
-    description: "Complete streaming history"
+    description: "Complete daily streaming history"
   }
 ] as const;
 

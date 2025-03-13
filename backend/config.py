@@ -10,8 +10,7 @@ class Settings(BaseSettings):
     # CockroachDB specific credentials
     COCKROACH_DB_USER: str = os.getenv('COCKROACH_DB_USER', '')
     COCKROACH_DB_PW: str = os.getenv('COCKROACH_DB_PW', '')
-    COCKROACH_DB_HOST: str = os.getenv('COCKROACH_DB_HOST', 
-                                       'spotify-streams-8396.j77.aws-us-east-1.cockroachlabs.cloud:26257')
+    COCKROACH_DB_HOST: str = os.getenv('COCKROACH_DB_HOST', '')
     COCKROACH_DB_NAME: str = os.getenv('COCKROACH_DB_NAME', 'defaultdb')
     
     # Construct DATABASE_URL from individual components

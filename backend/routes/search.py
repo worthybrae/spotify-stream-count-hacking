@@ -1,7 +1,6 @@
 # routes/search.py
 from fastapi import APIRouter, HTTPException, Depends, Query
 import traceback
-
 from routes.dependencies import verify_api_key, get_spotify_services, get_database_service
 
 router = APIRouter()

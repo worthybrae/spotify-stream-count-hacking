@@ -1,0 +1,106 @@
+version: "3.8"
+
+services:
+  # Redis service for Celery broker and result backend
+  redis:
+    image: redis:alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 30s
+      retries: 5
+
+  # FastAPI application
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    ports:
+      - "8000:8000"
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - DATABASE_URL=${DATABASE_URL:-postgresql://username:password@localhost:5432/spotify_db}
+      - COCKROACH_DB_USER=${COCKROACH_DB_USER}
+      - COCKROACH_DB_PW=${COCKROACH_DB_PW}
+      - COCKROACH_DB_HOST=${COCKROACH_DB_HOST}
+      - COCKROACH_DB_NAME=${COCKROACH_DB_NAME}
+      - API_KEY=${API_KEY}
+      - SPOTIFY_CLIENT_ID=${SPOTIFY_CLIENT_ID}
+      - SPOTIFY_CLIENT_SECRET=${SPOTIFY_CLIENT_SECRET}
+    depends_on:
+      - redis
+    volumes:
+      - .:/app
+    restart: unless-stopped
+
+  # Celery worker for processing tasks
+  celery_worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.celery
+    command: celery -A celery_app worker --loglevel=info
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - DATABASE_URL=${DATABASE_URL:-postgresql://username:password@localhost:5432/spotify_db}
+      - COCKROACH_DB_USER=${COCKROACH_DB_USER}
+      - COCKROACH_DB_PW=${COCKROACH_DB_PW}
+      - COCKROACH_DB_HOST=${COCKROACH_DB_HOST}
+      - COCKROACH_DB_NAME=${COCKROACH_DB_NAME}
+      - API_KEY=${API_KEY}
+      - SPOTIFY_CLIENT_ID=${SPOTIFY_CLIENT_ID}
+      - SPOTIFY_CLIENT_SECRET=${SPOTIFY_CLIENT_SECRET}
+    depends_on:
+      - redis
+      - api
+    volumes:
+      - .:/app
+    restart: unless-stopped
+
+  # Celery beat for scheduled tasks
+  celery_beat:
+    build:
+      context: .
+      dockerfile: Dockerfile.celery
+    command: celery -A celery_app beat --loglevel=info
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - DATABASE_URL=${DATABASE_URL:-postgresql://username:password@localhost:5432/spotify_db}
+      - COCKROACH_DB_USER=${COCKROACH_DB_USER}
+      - COCKROACH_DB_PW=${COCKROACH_DB_PW}
+      - COCKROACH_DB_HOST=${COCKROACH_DB_HOST}
+      - COCKROACH_DB_NAME=${COCKROACH_DB_NAME}
+      - API_KEY=${API_KEY}
+      - SPOTIFY_CLIENT_ID=${SPOTIFY_CLIENT_ID}
+      - SPOTIFY_CLIENT_SECRET=${SPOTIFY_CLIENT_SECRET}
+    depends_on:
+      - redis
+      - api
+    volumes:
+      - .:/app
+    restart: unless-stopped
+
+  # Flower for monitoring Celery
+  flower:
+    build:
+      context: .
+      dockerfile: Dockerfile.celery
+    command: celery -A celery_app flower --port=5555
+    ports:
+      - "5555:5555"
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    depends_on:
+      - redis
+      - celery_worker
+    restart: unless-stopped
+
+volumes:
+  redis_data:

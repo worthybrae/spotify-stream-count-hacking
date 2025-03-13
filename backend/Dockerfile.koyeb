@@ -1,0 +1,7 @@
+FROM koyeb/docker-compose
+
+# Copy the entire repository to the image
+COPY . /app
+
+# When deploying to Koyeb, the Docker Compose image will
+# automatically read the docker-compose.yaml file and start all services

@@ -6,25 +6,22 @@ from urllib.parse import quote
 from fastapi import HTTPException
 from models import AlbumResponse, Track
 import time
-import platform
-import uuid
-import re
-import random
 import asyncio
+import random
+from playwright.async_api import async_playwright
 
 
 class TokenManager:
     """
     Manages authentication tokens for the unofficial Spotify API
-    with improved error handling and retry mechanism
+    using Playwright to intercept network requests
     """
     def __init__(self):
         self.client_token = None
         self.bearer_token = None
-        self.bearer_expiry = 0
-        self.token_expiry = 0
-        self.token_refresh = 0
-        self.client = httpx.AsyncClient(timeout=30.0)  # Increased timeout
+        self.bearer_expiry = 0  # Milliseconds timestamp
+        self.token_expiry = 0   # Seconds timestamp
+        self.client = httpx.AsyncClient(timeout=30.0)
         self.max_retries = 3
         self.fallback_album_ids = [
             "0HFmXICO7WgVoqLAXc7Rhw",  # Original album
@@ -33,152 +30,96 @@ class TokenManager:
             "6FJxoadUE4JNVwWHghBwnb",  # Bad Bunny - Un Verano Sin Ti
             "2ITZzNNN4Zm8jVoPJaCF1P"   # The Weeknd - After Hours
         ]
-        
-    def _generate_device_id(self) -> str:
-        """Generate a random device ID"""
-        return uuid.uuid4().hex
+        self.lock = asyncio.Lock()  # For thread safety when refreshing tokens
     
-    async def _fetch_bearer_token(self) -> Tuple[str, int]:
+    async def _fetch_tokens_with_playwright(self) -> Tuple[str, str]:
         """
-        Fetch Bearer token from album page with retry mechanism
+        Fetch both bearer and client tokens using Playwright to intercept network requests
         
         Returns:
-            Tuple of (token, expiry_timestamp)
+            Tuple of (bearer_token, client_token)
         """
-        errors = []
+        # Storage for our tokens
+        tokens = {"bearer": None, "client": None}
+        tokens_found = asyncio.Event()
         
-        # Try with different album IDs in case one is not available
-        for album_id in self.fallback_album_ids:
-            url = f"https://open.spotify.com/album/{album_id}"
+        async with async_playwright() as p:
+            # Launch the browser in headless mode (set to False for debugging)
+            browser = await p.chromium.launch(headless=True)
             
-            headers = {
-                "accept": "text/html,application/xhtml+xml",
-                "accept-language": "en-US,en;q=0.9",
-                "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"
-            }
-            
-            # Try multiple times with exponential backoff
-            for attempt in range(self.max_retries):
-                try:
-                    response = await self.client.get(url, headers=headers)
-                    response.raise_for_status()
-                    
-                    # Try regular session script pattern
-                    session_match = re.search(r'<script id="session".*?({.*?})</script>', 
-                                          response.text, re.DOTALL)
-                    
-                    # If not found, try alternative patterns
-                    if not session_match:
-                        # Alternative pattern 1
-                        session_match = re.search(r'<script>window\.initialData\s*=\s*({.*?})</script>', 
-                                               response.text, re.DOTALL)
-                        
-                        # Alternative pattern 2
-                        if not session_match:
-                            session_match = re.search(r'Spotify\.Entity\s*=\s*({.*?});', 
-                                                   response.text, re.DOTALL)
-                    
-                    if not session_match:
-                        raise ValueError("Could not find session data in page")
-                        
-                    session_data = json.loads(session_match.group(1))
-                    
-                    # Extract token - handle different response structures
-                    access_token = None
-                    expiry = None
-                    
-                    # Standard format
-                    if "accessToken" in session_data and "accessTokenExpirationTimestampMs" in session_data:
-                        access_token = session_data["accessToken"]
-                        expiry = int(session_data["accessTokenExpirationTimestampMs"])
-                    # Alternative format
-                    elif "token" in session_data and "expires" in session_data:
-                        access_token = session_data["token"]
-                        expiry = int(session_data["expires"])
-                    # Another alternative
-                    elif "access" in session_data and "token" in session_data.get("access", {}):
-                        access_token = session_data["access"]["token"]
-                        expiry = int(session_data["access"].get("expiry", time.time() * 1000 + 3600000))
-                        
-                    if not access_token:
-                        raise ValueError("Could not extract access token from session data")
-                        
-                    print(f"Successfully obtained bearer token using album ID: {album_id}")
-                    return (access_token, expiry)
-                    
-                except Exception as e:
-                    # Add error to list
-                    errors.append(f"Attempt {attempt+1} with album {album_id}: {str(e)}")
-                    
-                    # Exponential backoff with jitter before retrying
-                    if attempt < self.max_retries - 1:
-                        backoff_time = (2 ** attempt) + random.uniform(0, 1)
-                        print(f"Bearer token fetch failed. Retrying in {backoff_time:.2f} seconds...")
-                        await asyncio.sleep(backoff_time)
-        
-        # If we get here, all retries with all albums failed
-        detailed_errors = "\n".join(errors)
-        raise HTTPException(
-            status_code=500, 
-            detail=f"Failed to fetch Bearer token after multiple attempts:\n{detailed_errors}"
-        )
-
-    async def _fetch_client_token(self) -> None:
-        """Fetch client token from Spotify with retry mechanism"""
-        url = "https://clienttoken.spotify.com/v1/clienttoken"
-        
-        payload = {
-            "client_data": {
-                "client_version": "1.2.59.53.gb992eb8d",
-                "client_id": "d8a5ed958d274c2e8ee717e6a4b0971d",
-                "js_sdk_data": {
-                    "device_brand": "Apple",
-                    "device_model": "unknown",
-                    "os": platform.system().lower(),
-                    "os_version": platform.release(),
-                    "device_id": self._generate_device_id(),
-                    "device_type": "computer"
-                }
-            }
-        }
-        
-        headers = {
-            "accept": "application/json",
-            "content-type": "application/json",
-            "origin": "https://open.spotify.com",
-            "referer": "https://open.spotify.com/"
-        }
-
-        errors = []
-        for attempt in range(self.max_retries):
             try:
-                response = await self.client.post(url, json=payload, headers=headers)
-                response.raise_for_status()
-                data = response.json()
+                context = await browser.new_context()
+                page = await context.new_page()
                 
-                self.client_token = data["granted_token"]["token"]
+                # Set up our request interceptor
+                async def capture_tokens(request):
+                    # Only look at requests to the Spotify API
+                    if "api-partner.spotify.com/pathfinder/v1/query" in request.url:
+                        headers = request.headers
+                        
+                        # Extract tokens from headers
+                        if "authorization" in headers and headers["authorization"].startswith("Bearer "):
+                            tokens["bearer"] = headers["authorization"].replace("Bearer ", "")
+                        
+                        if "client-token" in headers:
+                            tokens["client"] = headers["client-token"]
+                        
+                        # If we found both tokens, signal that we're done
+                        if tokens["bearer"] and tokens["client"]:
+                            tokens_found.set()
+                
+                # Register the interceptor
+                page.on("request", capture_tokens)
+                
+                # Navigate to Spotify
+                await page.goto("https://open.spotify.com/")
+                
+                # Try different album pages until we find the tokens
+                for album_id in self.fallback_album_ids:
+                    if tokens["bearer"] and tokens["client"]:
+                        break
+                        
+                    print(f"Trying to fetch tokens using album ID: {album_id}")
+                    await page.goto(f"https://open.spotify.com/album/{album_id}")
+                    
+                    # Wait a bit for API calls to happen
+                    try:
+                        await asyncio.wait_for(tokens_found.wait(), timeout=5)
+                    except asyncio.TimeoutError:
+                        continue  # Try next album
+                
+                # Final timeout if we've tried all albums
+                if not tokens["bearer"] or not tokens["client"]:
+                    try:
+                        await asyncio.wait_for(tokens_found.wait(), timeout=5)
+                    except asyncio.TimeoutError:
+                        raise HTTPException(
+                            status_code=500,
+                            detail="Timeout waiting for Spotify tokens"
+                        )
+                
+                if not tokens["bearer"]:
+                    raise HTTPException(
+                        status_code=500,
+                        detail="Failed to obtain bearer token"
+                    )
+                    
+                if not tokens["client"]:
+                    raise HTTPException(
+                        status_code=500,
+                        detail="Failed to obtain client token"
+                    )
+                
+                # Set expiry time (using 1 hour as default)
                 current_time = time.time()
-                self.token_expiry = current_time + data["granted_token"]["expires_after_seconds"]
-                self.token_refresh = current_time + data["granted_token"]["refresh_after_seconds"]
+                self.bearer_expiry = int(current_time * 1000) + 3600000  # 1 hour in milliseconds
+                self.token_expiry = current_time + 3600  # 1 hour in seconds
                 
-                print("Successfully obtained client token")
-                return
+                print("Successfully obtained tokens using Playwright")
+                return tokens["bearer"], tokens["client"]
                 
-            except Exception as e:
-                errors.append(f"Attempt {attempt+1}: {str(e)}")
-                
-                # Exponential backoff with jitter before retrying
-                if attempt < self.max_retries - 1:
-                    backoff_time = (2 ** attempt) + random.uniform(0, 1)
-                    print(f"Client token fetch failed. Retrying in {backoff_time:.2f} seconds...")
-                    await asyncio.sleep(backoff_time)
-        
-        # If we get here, all retries failed
-        detailed_errors = "\n".join(errors)
-        raise HTTPException(
-            status_code=500, 
-            detail=f"Failed to fetch client token after multiple attempts:\n{detailed_errors}"
-        )
+            finally:
+                await browser.close()
 
     async def get_tokens(self) -> Tuple[str, str]:
         """
@@ -187,22 +128,20 @@ class TokenManager:
         Returns:
             Tuple of (client_token, bearer_token)
         """
-        current_time = time.time()
-        
-        # Refresh client token if needed
-        client_token_valid = self.client_token and current_time < self.token_refresh
-        if not client_token_valid:
-            await self._fetch_client_token()
+        # Use a lock to prevent multiple concurrent token refreshes
+        async with self.lock:
+            current_time = time.time()
             
-        # Refresh bearer token if needed  
-        bearer_token_valid = self.bearer_token and current_time * 1000 < self.bearer_expiry
-        if not bearer_token_valid:
-            # Preemptively refresh if within 5 minutes of expiry
-            near_expiry = self.bearer_token and current_time * 1000 + 300000 >= self.bearer_expiry
-            if not self.bearer_token or near_expiry:
-                self.bearer_token, self.bearer_expiry = await self._fetch_bearer_token()
-        
-        return self.client_token, self.bearer_token
+            # Check if tokens are valid or need refreshing
+            client_token_valid = self.client_token and current_time < self.token_expiry - 300  # 5 min buffer
+            bearer_token_valid = self.bearer_token and current_time * 1000 < self.bearer_expiry - 300000  # 5 min buffer
+            
+            # Refresh both tokens if either is invalid or missing
+            if not client_token_valid or not bearer_token_valid:
+                print(f"Refreshing tokens (current_time={current_time}, token_expiry={self.token_expiry}, bearer_expiry={self.bearer_expiry})")
+                self.bearer_token, self.client_token = await self._fetch_tokens_with_playwright()
+            
+            return self.client_token, self.bearer_token
 
 
 class UnofficialSpotifyService:
