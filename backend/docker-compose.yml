@@ -34,10 +34,17 @@ services:
       - SPOTIFY_CLIENT_ID=${SPOTIFY_CLIENT_ID}
       - SPOTIFY_CLIENT_SECRET=${SPOTIFY_CLIENT_SECRET}
     depends_on:
-      - redis
+      redis:
+        condition: service_healthy
     volumes:
       - .:/app
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
 
   # Celery worker for processing tasks
   celery_worker:
@@ -58,8 +65,10 @@ services:
       - SPOTIFY_CLIENT_ID=${SPOTIFY_CLIENT_ID}
       - SPOTIFY_CLIENT_SECRET=${SPOTIFY_CLIENT_SECRET}
     depends_on:
-      - redis
-      - api
+      redis:
+        condition: service_healthy
+      api:
+        condition: service_healthy
     volumes:
       - .:/app
     restart: unless-stopped
