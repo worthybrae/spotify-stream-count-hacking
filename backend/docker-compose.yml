@@ -44,6 +44,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.celery
+    privileged: true
     command: celery -A celery_app worker --loglevel=info
     environment:
       - CELERY_BROKER_URL=redis://redis:6379/0
@@ -68,6 +69,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.celery
+    privileged: true
     command: celery -A celery_app beat --loglevel=info
     environment:
       - CELERY_BROKER_URL=redis://redis:6379/0
