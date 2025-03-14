@@ -80,6 +80,8 @@ async def _fetch_albums_batch_async():
         limit=batch_params["limit"],
         offset=batch_params["offset"]
     )
+
+    print(albums)
     
     # If no albums found, reset tracker and return
     if not albums:

@@ -1,6 +1,7 @@
 # celery_app.py
 from celery_init import app
 import os
+from celery.schedules import crontab
 
 # Import tasks module for registration
 import tasks
@@ -26,7 +27,7 @@ app.conf.worker_concurrency = os.cpu_count()
 app.conf.beat_schedule = {
     'update-albums-daily': {
         'task': 'tasks.fetch_albums_batch',
-        'schedule': 86400.0,  # Once per day
-        'options': {'expires': 3600}
+        'schedule': crontab(hour=3, minute=0),  # Runs at 3:00 AM every day
+        'options': {'expires': 21600}
     },
 }
