@@ -80,17 +80,20 @@ async def _fetch_albums_batch_async():
         limit=batch_params["limit"],
         offset=batch_params["offset"]
     )
-
-    print(albums)
     
     # If no albums found, reset tracker and return
     if not albums:
+        print('No more albums to process, resetting tracker')
         album_tracker.reset()
         return {"status": "complete", "message": "No more albums to process"}
     
     # For each album, create a task to fetch metrics
     for album in albums:
         fetch_album_metrics.delay(album)
+    
+    # Add this to chain the next batch automatically
+    # This is the key fix - schedule the next batch processing
+    fetch_albums_batch.delay()
     
     return {
         "status": "processing",
@@ -99,7 +102,7 @@ async def _fetch_albums_batch_async():
     }
 
 # Task 2: Fetch metrics for a single album (middle boxes in diagram)
-@app.task(rate_limit="100/m")
+@app.task(rate_limit="200/m")
 def fetch_album_metrics(album):
     """Fetch metrics for an album from Spotify API"""
     return asyncio.run(_fetch_album_metrics_async(album))
