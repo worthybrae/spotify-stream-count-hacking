@@ -110,10 +110,10 @@ class TokenManager:
                         detail="Failed to obtain client token"
                     )
                 
-                # Set expiry time (using 1 hour as default)
+                # Set expiry time (using 15 min as default)
                 current_time = time.time()
-                self.bearer_expiry = int(current_time * 1000) + 3600000  # 1 hour in milliseconds
-                self.token_expiry = current_time + 3600  # 1 hour in seconds
+                self.bearer_expiry = int(current_time * 1000) + 900000  # 15 min in milliseconds
+                self.token_expiry = current_time + 900  # 15 min in seconds
                 
                 print("Successfully obtained tokens using Playwright")
                 return tokens["bearer"], tokens["client"]
