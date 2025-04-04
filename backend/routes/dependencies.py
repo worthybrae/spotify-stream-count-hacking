@@ -3,8 +3,8 @@ from fastapi import Request, Depends, HTTPException
 from fastapi.security.api_key import APIKeyHeader
 from services.unofficial_spotify import TokenManager, UnofficialSpotifyService
 from services.official_spotify import OfficialSpotifyService
-from services.database import DatabaseService
-from services.auth import ApiKeyService
+from services.cockroach import DatabaseService
+from services.api import ApiKeyService
 from config import settings
 import traceback
 

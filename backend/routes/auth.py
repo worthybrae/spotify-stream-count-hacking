@@ -1,6 +1,6 @@
 # routes/auth.py
 from fastapi import APIRouter, HTTPException, Request, Query
-from services.auth import ApiKeyService
+from services.api import ApiKeyService
 from fastapi.security.api_key import APIKeyHeader
 import traceback
 from typing import Optional

@@ -1,8 +1,9 @@
-// MainLayout.tsx
+// components/layout/MainLayout.tsx
 import { Outlet, Link } from 'react-router-dom';
 import BackgroundManager from './BackgroundManager';
 import { useState, useEffect } from 'react';
 import { SearchResult } from '@/types/search';
+import AuthStatus from '@/components/features/auth/AuthStatus';
 
 const MainLayout = () => {
   const [selectedAlbum, setSelectedAlbum] = useState<SearchResult | null>(null);
@@ -28,11 +29,19 @@ const MainLayout = () => {
         <div className="container mx-auto px-4">
           <div className="flex h-14 items-center justify-between">
             <Link to="/" className="text-lg font-medium text-white">streamclout.io</Link>
-            <nav className="flex gap-6">
-              <Link to="/api" className="text-sm text-white/70 hover:text-white transition-colors">api</Link>
-              <Link to="/docs" className="text-sm text-white/70 hover:text-white transition-colors">docs</Link>
-              <Link to="/about" className="text-sm text-white/70 hover:text-white transition-colors">about</Link>
-            </nav>
+            
+            <div className="flex items-center gap-6">
+              
+              
+              {/* Navigation Links */}
+              <nav className="flex gap-6">
+                <Link to="/api" className="text-sm text-white/70 hover:text-white transition-colors">api</Link>
+                <Link to="/docs" className="text-sm text-white/70 hover:text-white transition-colors">docs</Link>
+                <Link to="/about" className="text-sm text-white/70 hover:text-white transition-colors">about</Link>
+              </nav>
+              {/* Auth Status Component */}
+              <AuthStatus />
+            </div>
           </div>
         </div>
       </header>

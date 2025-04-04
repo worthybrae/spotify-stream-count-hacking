@@ -267,4 +267,82 @@ class DatabaseService:
                     'streams_count': streams_count
                 }
 
-    
+    @staticmethod
+    async def get_user_top_tracks(user_id: str, limit: int = 50) -> List[Dict]:
+        """
+        Get a user's top tracks from the database
+        
+        Args:
+            user_id: User ID to get top tracks for
+            limit: Maximum number of tracks to return
+            
+        Returns:
+            List of track details
+        """
+        async with get_db() as conn:
+            results = await conn.fetch("""
+                SELECT 
+                    utt.track_id,
+                    t.name,
+                    utt.position,
+                    t.album_id,
+                    a.name as album_name,
+                    a.artist_name
+                FROM user_top_tracks utt
+                JOIN tracks t ON utt.track_id = t.track_id
+                JOIN albums a ON t.album_id = a.album_id
+                WHERE utt.user_id = $1
+                ORDER BY utt.created_at DESC, utt.position ASC
+                LIMIT $2
+            """, user_id, limit)
+            
+            return [dict(r) for r in results]
+
+    @staticmethod
+    async def save_user_top_tracks(user_id: str, tracks_data: List[Dict]) -> Dict:
+        """
+        Save a user's top tracks and ensure albums exist in the database
+        
+        Args:
+            user_id: User ID to save top tracks for
+            tracks_data: List of track details including position
+            
+        Returns:
+            Summary of saved tracks and albums to fetch
+        """
+        if not tracks_data:
+            return {"tracks_saved": 0, "albums_to_fetch": []}
+        
+        # Collect album IDs for checking
+        album_ids = set()
+        values = []
+        for track in tracks_data:
+            if track.get('album_id'):
+                album_ids.add(track['album_id'])
+            values.append((user_id, track['track_id'], track['position']))
+        
+        # Albums that need to be fetched
+        albums_to_fetch = []
+        
+        async with get_db() as conn:
+            # Insert user top tracks
+            
+            await conn.executemany("""
+                INSERT INTO user_top_tracks (user_id, track_id, position)
+                VALUES ($1, $2, $3)
+            """, values)
+            
+            # Check which albums don't exist in our database
+            for album_id in album_ids:
+                album_exists = await conn.fetchval(
+                    "SELECT EXISTS(SELECT 1 FROM albums WHERE album_id = $1)",
+                    album_id
+                )
+                
+                if not album_exists:
+                    albums_to_fetch.append(album_id)
+        
+        return {
+            "tracks_saved": len(values),
+            "albums_to_fetch": albums_to_fetch
+        }

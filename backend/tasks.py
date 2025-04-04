@@ -1,6 +1,6 @@
 # tasks.py
 from celery_init import app
-from services.database import DatabaseService
+from services.cockroach import DatabaseService
 from services.unofficial_spotify import TokenManager, UnofficialSpotifyService
 import asyncio
 from datetime import datetime

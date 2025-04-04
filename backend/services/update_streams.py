@@ -1,7 +1,7 @@
 # services/update_streams.py
 import asyncio
 from datetime import datetime
-from services.database import get_db, DatabaseService
+from services.cockroach import get_db, DatabaseService
 from services.unofficial_spotify import TokenManager, UnofficialSpotifyService
 
 class StreamUpdateService:

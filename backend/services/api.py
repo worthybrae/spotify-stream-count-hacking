@@ -4,7 +4,7 @@ import secrets
 import string
 from fastapi import HTTPException
 from typing import Optional, Dict
-from services.database import get_db
+from services.cockroach import get_db
 from config import settings  # Import settings to access API_KEY env var
 import traceback
 

@@ -8,6 +8,7 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 from routes.albums import router as albums_router
 from routes.search import router as search_router
 from routes.auth import router as auth_router
+from routes.tracks import router as tracks_router
 
 # Create the FastAPI app with the lifespan
 app = FastAPI(
@@ -48,6 +49,7 @@ app.add_middleware(ProxyHeadersMiddleware)
 app.include_router(albums_router, prefix="/albums", tags=["Albums"])
 app.include_router(search_router, prefix="/search", tags=["Search"])
 app.include_router(auth_router, prefix="/auth", tags=["Auth"])
+app.include_router(tracks_router, prefix="/tracks", tags=["Tracks"])
 
 # Add a simple health check endpoint
 @app.get("/", tags=["Health"])
