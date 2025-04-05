@@ -38,17 +38,20 @@ export function AuthCallback() {
           
           const accessToken = session.provider_token;
           console.log('Access token exists:', !!accessToken);
+          console.log('Access token length:', accessToken ? accessToken.length : 0);
           
           const refreshToken = session.provider_refresh_token;
           console.log('Refresh token exists:', !!refreshToken);
+          console.log('Refresh token length:', refreshToken ? refreshToken.length : 0);
           
           // Fix: Convert expires_at properly
           // If expires_at is in seconds (as epoch), convert to milliseconds and create date
-          const expiresAt = session.expires_at 
-            ? new Date(session.expires_at * 1000) // Convert seconds to milliseconds
-            : new Date(Date.now() + 3600 * 1000); // Default to 1 hour from now if missing
+          const expiresAtTimestamp = session.expires_at 
+            ? session.expires_at * 1000 // Convert seconds to milliseconds
+            : Date.now() + 3600 * 1000; // Default to 1 hour from now if missing
             
-          console.log('Expires at:', expiresAt.toISOString());
+          const expiresAt = new Date(expiresAtTimestamp);
+          console.log('Expires at:', expiresAt.toISOString(), 'Original timestamp:', session.expires_at);
           
           // Ensure we have both tokens before proceeding
           if (!accessToken || !refreshToken) {
@@ -57,34 +60,6 @@ export function AuthCallback() {
               hasRefreshToken: !!refreshToken
             });
             throw new Error('Authentication incomplete: Missing required tokens');
-          }
-          
-          try {
-            // Simply insert a new token record without checking for existing ones
-            console.log('Inserting token...');
-            const insertData = {
-              user_id: userId,
-              access_token: accessToken,
-              refresh_token: refreshToken,
-              expires_at: expiresAt,
-              created_at: new Date()
-            };
-            
-            const { error: insertError } = await supabase
-              .from('tokens')
-              .insert(insertData);
-              
-            if (insertError) {
-              console.error('Insert error:', insertError);
-              console.error('Insert error code:', insertError.code);
-              console.error('Insert error message:', insertError.message);
-              console.error('Insert error details:', insertError.details);
-            } else {
-              console.log('Token inserted successfully');
-            }
-          } catch (saveError) {
-            console.error('Error saving token to database:', saveError);
-            // Continue anyway since authentication still succeeded
           }
         }
         

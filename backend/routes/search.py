@@ -1,7 +1,7 @@
 # routes/search.py
-from fastapi import APIRouter, HTTPException, Depends, Query
+from fastapi import APIRouter, HTTPException, Query
 import traceback
-from routes.dependencies import verify_api_key, get_spotify_services, get_database_service
+from routes.dependencies import get_spotify_services, get_database_service
 
 router = APIRouter()
 
@@ -9,8 +9,7 @@ router = APIRouter()
 async def search_albums(
     query: str = Query(..., min_length=1),
     limit: int = Query(default=10, le=50),
-    force_spotify: bool = Query(False, description="Force search on Spotify even if results found in database"),
-    _: str = Depends(verify_api_key)
+    force_spotify: bool = Query(False, description="Force search on Spotify even if results found in database")
 ):
     """
     Search albums by name in database. If no results or force_spotify=True, search Spotify API.

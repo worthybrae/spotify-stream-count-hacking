@@ -34,6 +34,7 @@ const MiniStreamChart: React.FC<MiniStreamChartProps> = ({ track }) => {
     
     // Need at least 2 points to draw a line
     if (validData.length < 2) {
+      console.log('Not enough data points for track', track.name, 'only', validData.length, 'points');
       return { 
         chartData: [] as ChartDataPoint[], 
         canShowChart: false
@@ -77,10 +78,11 @@ const MiniStreamChart: React.FC<MiniStreamChartProps> = ({ track }) => {
 
   // Return empty div if no data
   if (!canShowChart) {
-    return <div className="h-10"></div>;
+    return <div className="h-10">
+      <div className="text-xs text-white/40 text-center pt-2">Insufficient data</div>
+    </div>;
   }
   
-  // Calculate dynamic Y-axis domain with consistent +/- 2% padding
   // Calculate dynamic Y-axis domain with aggressive scaling to emphasize trends
   const { yAxisDomain } = useMemo(() => {
     // Find min and max values
@@ -95,8 +97,6 @@ const MiniStreamChart: React.FC<MiniStreamChartProps> = ({ track }) => {
     if (maxValue < 10) {
       return {
         yAxisDomain: [0, 10], // Set minimum domain size for very small values
-        maxDailyStreams: maxValue,
-        minDailyStreams: minValue
       };
     }
     
@@ -108,13 +108,8 @@ const MiniStreamChart: React.FC<MiniStreamChartProps> = ({ track }) => {
       const artificialMin = avgValue * 0.8; // 20% below average
       const artificialMax = avgValue * 1.2; // 20% above average
       
-      console.log('Using artificial domain for flat line chart:', [artificialMin, artificialMax]);
-      
       return {
         yAxisDomain: [artificialMin, artificialMax],
-        maxDailyStreams: maxValue,
-        minDailyStreams: minValue,
-        isArtificialDomain: true
       };
     }
     
@@ -131,12 +126,8 @@ const MiniStreamChart: React.FC<MiniStreamChartProps> = ({ track }) => {
     // Add padding to max
     const max = maxValue * 1.15; // 15% padding above max
     
-    console.log('Using normal domain:', [min, max]);
-    
     return {
       yAxisDomain: [min, max],
-      maxDailyStreams: maxValue,
-      minDailyStreams: minValue
     };
   }, [chartData]);
   
@@ -160,12 +151,11 @@ const MiniStreamChart: React.FC<MiniStreamChartProps> = ({ track }) => {
   // Render the chart with responsive height
   return (
     <div className="flex flex-col w-full">
-      <div className="h-7 w-full ">
+      <div className="h-7 w-full">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart 
             data={chartData} 
             margin={{ top: 1, right: 0, bottom: 1, left: 0 }}
-            
           >
             {/* YAxis with dynamic domain */}
             <YAxis 
@@ -179,7 +169,6 @@ const MiniStreamChart: React.FC<MiniStreamChartProps> = ({ track }) => {
               stroke="#10b981" 
               strokeWidth={2} 
               dot={false}
-              
               activeDot={{ r: 4, stroke: "#10b981", strokeWidth: 1, fill: "#10b981" }}
               isAnimationActive={false}
             />

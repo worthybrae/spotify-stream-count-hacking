@@ -268,35 +268,85 @@ class DatabaseService:
                 }
 
     @staticmethod
-    async def get_user_top_tracks(user_id: str, limit: int = 50) -> List[Dict]:
+    async def get_user_top_tracks(user_id: str) -> List[Dict]:
         """
-        Get a user's top tracks from the database
+        Get a user's top tracks for a specific date (defaults to current date)
+        with their stream count history for the past 8 days
         
         Args:
             user_id: User ID to get top tracks for
-            limit: Maximum number of tracks to return
-            
         Returns:
-            List of track details
+            List of enriched track details with stream history
         """
         async with get_db() as conn:
-            results = await conn.fetch("""
-                SELECT 
+            # First get the list of top tracks for the user today with full album details
+            top_tracks = await conn.fetch("""
+                SELECT
                     utt.track_id,
                     t.name,
                     utt.position,
                     t.album_id,
                     a.name as album_name,
-                    a.artist_name
+                    a.cover_art,
+                    a.release_date,
+                    a.artist_id,
+                    a.artist_name,
+                    utt.created_at
                 FROM user_top_tracks utt
                 JOIN tracks t ON utt.track_id = t.track_id
                 JOIN albums a ON t.album_id = a.album_id
                 WHERE utt.user_id = $1
-                ORDER BY utt.created_at DESC, utt.position ASC
-                LIMIT $2
-            """, user_id, limit)
+                AND date(utt.created_at) = CURRENT_DATE
+                ORDER BY utt.position ASC
+            """, user_id)
             
-            return [dict(r) for r in results]
+            if not top_tracks:
+                return []
+            
+            # Extract track_ids to get stream data
+            track_ids = [t['track_id'] for t in top_tracks]
+            
+            # Get stream data for these tracks
+            stream_data = await conn.fetch("""
+                WITH streamsdata AS (
+                    SELECT
+                        track_id, 
+                        timestamp::DATE as day, 
+                        max(play_count) as plays
+                    FROM streams
+                    WHERE track_id = ANY($1) 
+                    AND timestamp >= CURRENT_DATE - INTERVAL '8 days'
+                    GROUP BY track_id, day
+                )
+                SELECT
+                    track_id,
+                    day,
+                    COALESCE(plays, 0) as playcount
+                FROM streamsdata
+                ORDER BY track_id, day
+            """, track_ids)
+            
+            # Create a dictionary to map track_id to its stream data
+            track_streams = {}
+            for stream in stream_data:
+                track_id = stream['track_id']
+                if track_id not in track_streams:
+                    track_streams[track_id] = []
+                track_streams[track_id].append({
+                    'day': stream['day'],
+                    'playcount': stream['playcount']
+                })
+            
+            # Combine top tracks with their stream data
+            result = []
+            for track in top_tracks:
+                track_dict = dict(track)
+                track_id = track_dict['track_id']
+                # Add stream history or empty array if no streams found
+                track_dict['stream_history'] = track_streams.get(track_id, [])
+                result.append(track_dict)
+            
+            return result
 
     @staticmethod
     async def save_user_top_tracks(user_id: str, tracks_data: List[Dict]) -> Dict:
@@ -346,3 +396,26 @@ class DatabaseService:
             "tracks_saved": len(values),
             "albums_to_fetch": albums_to_fetch
         }
+    
+    @staticmethod
+    async def get_user_top_tracks_dates(user_id: str) -> List[str]:
+        """
+        Get all distinct dates when a user's top tracks were created in the past 7 days
+        
+        Args:
+            user_id: User ID to get top track dates for
+            
+        Returns:
+            List of distinct dates when top tracks were created for this user in the past 7 days
+        """
+        async with get_db() as conn:
+            results = await conn.fetch("""
+                SELECT DISTINCT 
+                    date(created_at) as created_date
+                FROM user_top_tracks
+                WHERE user_id = $1
+                AND created_at >= CURRENT_DATE - INTERVAL '7 days'
+                ORDER BY created_date DESC
+            """, user_id)
+            
+            return [str(r['created_date']) for r in results]

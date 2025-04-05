@@ -1,14 +1,13 @@
 # routes/albums.py
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException
 from datetime import datetime
-from routes.dependencies import verify_api_key, get_spotify_services, get_database_service
+from routes.dependencies import get_spotify_services, get_database_service
 
 router = APIRouter()
 
 @router.get("/{album_id}")
 async def fetch_album(
-    album_id: str,
-    _: str = Depends(verify_api_key)
+    album_id: str
 ):
     """
     Get album details, all tracks, and their latest stream counts.

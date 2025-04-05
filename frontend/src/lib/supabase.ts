@@ -45,41 +45,6 @@ export const refreshSession = async () => {
       
       const session = data.session;
       
-      if (session) {
-        // After successful refresh, insert a new token record
-        const userId = session.user.id;
-        const accessToken = session.provider_token;
-        const refreshToken = session.provider_refresh_token;
-        
-        // Convert expires_at properly (same fix as in AuthCallback)
-        const expiresAt = session.expires_at 
-          ? new Date(session.expires_at * 1000) // Convert seconds to milliseconds
-          : new Date(Date.now() + 3600 * 1000); // Default to 1 hour from now
-        
-        try {
-          // Insert a new token record
-          const { error: insertError } = await supabase
-            .from('tokens')
-            .insert({
-              user_id: userId,
-              access_token: accessToken,
-              refresh_token: refreshToken,
-              expires_at: expiresAt,
-              created_at: new Date()
-            });
-            
-          if (insertError) {
-            console.error('Error inserting token after refresh:', insertError);
-            // Continue anyway since we still have a valid session
-          } else {
-            console.log('New token record inserted after refresh');
-          }
-        } catch (dbError) {
-          console.error('Database error during token insert after refresh:', dbError);
-          // Continue anyway
-        }
-      }
-      
       return session;
     } catch (refreshError) {
       console.error('Unexpected error during session refresh:', refreshError);
@@ -93,7 +58,7 @@ export const signInWithSpotify = async () => {
     provider: 'spotify',
     options: {
       redirectTo: `${window.location.origin}/auth/callback`,
-      scopes: 'user-read-email user-top-read' // Add any additional scopes you need
+      scopes: 'user-read-email user-top-read user-read-recently-played' // Add any additional scopes you need
     }
   });
   

@@ -28,7 +28,7 @@ class Settings(BaseSettings):
     # Spotify API Credentials
     SPOTIFY_CLIENT_ID: str = os.getenv('SPOTIFY_CLIENT_ID', '')
     SPOTIFY_CLIENT_SECRET: str = os.getenv('SPOTIFY_CLIENT_SECRET', '')
-    SPOTIFY_REDIRECT_URI: str = os.getenv('SPOTIFY_REDIRECT_URI')
+    SPOTIFY_REDIRECT_URI: str = os.getenv('SPOTIFY_REDIRECT_URI', '')
 
     SUPABASE_URL: str = os.getenv('SUPABASE_URL')
     SUPABASE_KEY: str = os.getenv('SUPABASE_ANON_KEY')
