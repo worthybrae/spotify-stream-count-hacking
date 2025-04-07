@@ -3,7 +3,7 @@ import { Card } from '@/components/ui/card';
 import { LineChart, Line, ResponsiveContainer, Tooltip } from 'recharts';
 import axios from 'axios';
 import { useAuth } from '@/contexts/AuthContext';
-import { Loader2, TrendingUp, Award } from 'lucide-react';
+import { Loader2, TrendingUp, Clock, Award } from 'lucide-react';
 import { formatNumber } from '@/lib/utils/formatters';
 
 interface CloutScoreComponentProps {
@@ -18,6 +18,7 @@ interface CloutScoreData {
     score: number;
   }>;
   growth_percentage: number;
+  daily_growth_percentage: number; // Added 24hr growth percentage
   rank_percentile: number;
 }
 
@@ -94,7 +95,7 @@ const CloutScoreComponent: React.FC<CloutScoreComponentProps> = ({ userId }) => 
         // Extract the latest score
         const latestScore = sortedClout[sortedClout.length - 1].clout;
         
-        // Calculate growth percentage (compare last two points if available)
+        // Calculate weekly growth percentage (compare last two points if available)
         let growthPercentage = 0;
         if (sortedClout.length >= 2) {
           const previousScore = sortedClout[sortedClout.length - 2].clout;
@@ -102,6 +103,18 @@ const CloutScoreComponent: React.FC<CloutScoreComponentProps> = ({ userId }) => 
             growthPercentage = ((latestScore - previousScore) / previousScore) * 100;
           } else if (latestScore > 0) {
             growthPercentage = 100; // If previous was 0 and now it's positive
+          }
+        }
+        
+        // Calculate 24-hour growth percentage
+        // For simplicity, assuming the last data point is today and the one before is yesterday
+        let dailyGrowthPercentage = 0;
+        if (sortedClout.length >= 2) {
+          const yesterdayScore = sortedClout[sortedClout.length - 2].clout;
+          if (yesterdayScore > 0) {
+            dailyGrowthPercentage = ((latestScore - yesterdayScore) / yesterdayScore) * 100;
+          } else if (latestScore > 0) {
+            dailyGrowthPercentage = 100;
           }
         }
         
@@ -119,6 +132,7 @@ const CloutScoreComponent: React.FC<CloutScoreComponentProps> = ({ userId }) => 
           current_score: latestScore,
           trend_data: trendData,
           growth_percentage: Number(growthPercentage.toFixed(1)),
+          daily_growth_percentage: Number(dailyGrowthPercentage.toFixed(1)),
           rank_percentile: rankPercentile
         });
       } else {
@@ -128,6 +142,7 @@ const CloutScoreComponent: React.FC<CloutScoreComponentProps> = ({ userId }) => 
           current_score: 0,
           trend_data: [{ date: new Date().toISOString().split('T')[0], score: 0 }],
           growth_percentage: 0,
+          daily_growth_percentage: 0,
           rank_percentile: 5 // Lowest percentile
         });
       }
@@ -249,87 +264,60 @@ const CloutScoreComponent: React.FC<CloutScoreComponentProps> = ({ userId }) => 
           </div>
         ) : scoreData ? (
           <>
-            {/* Stats cards */}
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
-              {/* Current Score with Level Progress Ring */}
-              <div className="bg-gradient-to-r from-purple-900/40 to-blue-900/40 p-4 rounded-lg border border-white/10 relative overflow-hidden">
-                {/* Level Progress Ring */}
-                {(() => {
-                  const levelInfo = getLevelInfo(scoreData.current_score);
-                  const circumference = 2 * Math.PI * 38; // Circle with radius 38
-                  const dashOffset = circumference * (1 - levelInfo.progress);
-                  
-                  return (
-                    <>
-                      {/* Background ring */}
-                      <svg className="absolute top-0 left-0 -m-4" width="120" height="120">
-                        <circle 
-                          cx="60" 
-                          cy="60" 
-                          r="38" 
-                          fill="none" 
-                          stroke="#ffffff10" 
-                          strokeWidth="3"
-                        />
-                        {/* Progress ring */}
-                        <circle 
-                          cx="60" 
-                          cy="60" 
-                          r="38" 
-                          fill="none" 
-                          stroke={levelInfo.color.replace('text-', 'var(--')} 
-                          strokeWidth="3"
-                          strokeLinecap="round"
-                          strokeDasharray={circumference}
-                          strokeDashoffset={dashOffset}
-                          transform="rotate(-90 60 60)"
-                          style={{ transition: 'stroke-dashoffset 0.8s ease' }}
-                        />
-                      </svg>
-                    </>
-                  );
-                })()}
-                
-                <div className="text-left">
-                  <div className="text-3xl font-bold text-white">{formatNumber(scoreData.current_score)}</div>
-                  <div className="text-sm text-white/60">Clout</div>
+            <div className="grid grid-cols-4 gap-2 mb-6">
+              {/* Current Score Card */}
+              <div className="bg-gradient-to-r from-purple-900/40 to-blue-900/40 rounded-lg border border-white/10 flex items-center p-3">
+                <div className="flex-1">
+                  <div className="text-2xl font-bold text-white">{formatNumber(scoreData.current_score)}</div>
+                  <div className="text-xs text-white/60">Clout</div>
                 </div>
-              </div>
-              
-              {/* Growth Percentage */}
-              <div className="bg-black/30 p-4 rounded-lg border border-white/10">
-                <div className="flex items-center gap-2">
-                  <TrendingUp className={`h-5 w-5 ${getGrowthIndicatorClass(scoreData.growth_percentage)}`} />
-                  <div className={`text-2xl font-bold ${getGrowthIndicatorClass(scoreData.growth_percentage)}`}>
-                    {scoreData.growth_percentage > 0 ? '' : ''}{scoreData.growth_percentage}%
-                  </div>
-                </div>
-                <div className="text-sm text-white/60">Weekly Growth</div>
               </div>
               
               {/* Level Card */}
-              <div className="bg-black/30 p-4 rounded-lg border border-white/10">
+              <div className="relative bg-black/30 rounded-lg border border-white/10 p-3 overflow-hidden">
                 {(() => {
                   const levelInfo = getLevelInfo(scoreData.current_score);
-                  const nextLevel = levelInfo.name === 'Diamond' ? null : 
-                    getLevelInfo(levelInfo.next).name;
+                  const progress = levelInfo.progress * 100;
                   
                   return (
                     <>
-                      <div className="flex items-center gap-2">
-                        <Award className={`h-5 w-5 ${levelInfo.color}`} />
-                        <div className={`text-2xl font-bold ${levelInfo.color}`}>
+                      {/* Progress bar */}
+                      <div className="absolute bottom-0 left-0 h-1 bg-gradient-to-r from-blue-500 to-purple-500" style={{ width: `${progress}%` }}></div>
+                      
+                      <div className="flex items-center gap-1">
+                        <Award className={`h-4 w-4 ${levelInfo.color}`} />
+                        <div className={`text-lg font-bold ${levelInfo.color}`}>
                           {levelInfo.name}
                         </div>
                       </div>
-                      <div className="text-sm text-white/60">
-                        {nextLevel ? 
-                          `${Math.round(levelInfo.progress * 100)}% to ${nextLevel}` : 
-                          'Max Level'}
+                      <div className="text-xs text-white/60">
+                        {Math.round(progress)}% to next
                       </div>
                     </>
                   );
                 })()}
+              </div>
+              
+              {/* 24h Growth Card */}
+              <div className="bg-black/30 rounded-lg border border-white/10 p-3">
+                <div className="flex items-center gap-1">
+                  <Clock className={`h-4 w-4 ${getGrowthIndicatorClass(scoreData.daily_growth_percentage)}`} />
+                  <div className={`text-lg font-bold ${getGrowthIndicatorClass(scoreData.daily_growth_percentage)}`}>
+                    {scoreData.daily_growth_percentage > 0 ? '+' : ''}{scoreData.daily_growth_percentage}%
+                  </div>
+                </div>
+                <div className="text-xs text-white/60">24h Growth</div>
+              </div>
+              
+              {/* Weekly Growth Card */}
+              <div className="bg-black/30 rounded-lg border border-white/10 p-3">
+                <div className="flex items-center gap-1">
+                  <TrendingUp className={`h-4 w-4 ${getGrowthIndicatorClass(scoreData.growth_percentage)}`} />
+                  <div className={`text-lg font-bold ${getGrowthIndicatorClass(scoreData.growth_percentage)}`}>
+                    {scoreData.growth_percentage > 0 ? '+' : ''}{scoreData.growth_percentage}%
+                  </div>
+                </div>
+                <div className="text-xs text-white/60">Weekly Growth</div>
               </div>
             </div>
             
