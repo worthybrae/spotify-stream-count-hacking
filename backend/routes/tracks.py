@@ -10,11 +10,22 @@ router = APIRouter()
 async def get_user_top_tracks(
     user_id: str,
     access_token: str,
-    force: bool = Query(False, description="Force fetch from Spotify even if tracks exist in database")
+    force: bool = Query(False, description="Force fetch from Spotify even if tracks exist in database"),
+    limit: int = Query(50, description="Maximum number of tracks to return"),
+    offset: int = Query(0, description="Number of tracks to skip")
 ):
     """
-    Get a user's top 50 tracks. If force=False (default), fetches from database if available.
-    Otherwise fetches from Spotify API, saves to database, and ensures albums exist.
+    Get a user's top tracks with pagination.
+    
+    Args:
+        user_id: User ID to get top tracks for
+        access_token: Spotify access token
+        force: If True, fetch from Spotify even if data exists in database
+        limit: Maximum number of tracks to return (default: 50)
+        offset: Number of tracks to skip for pagination (default: 0)
+    
+    Returns:
+        Paginated list of user's top tracks with stream history
     """
     try:
         # Get services
@@ -24,8 +35,8 @@ async def get_user_top_tracks(
         
         # If not forcing Spotify API, try database first
         if not force:
-            # First search in database
-            db_results = await db_service.get_user_top_tracks(user_id)
+            # Search in database with pagination
+            db_results = await db_service.get_user_top_tracks(user_id, limit, offset)
             
             # If we have results, return them
             if db_results and len(db_results) > 0:
@@ -69,8 +80,8 @@ async def get_user_top_tracks(
             print(f"Error saving user top tracks: {str(save_error)}")
             raise
         
-        # Get updated tracks from database to return
-        updated_tracks = await db_service.get_user_top_tracks(user_id)
+        # Get updated tracks from database with pagination to return
+        updated_tracks = await db_service.get_user_top_tracks(user_id, limit, offset)
         return {"tracks": updated_tracks}
             
     except Exception as e:
@@ -104,3 +115,63 @@ async def get_user_check_ins(
         err_trace = traceback.format_exc()
         print(f"Error fetching user check-ins: {err_trace}")
         raise HTTPException(status_code=500, detail=f"Failed to get user check-ins: {str(e)}")
+    
+@router.get("/{user_id}/clout")
+async def get_user_clout(
+    user_id: str
+):
+    """
+    Get a user's clout by day based on their top tracks' play count growth
+    
+    Args:
+        user_id: User ID to get clout for
+        
+    Returns:
+        List of daily clout scores with associated date
+    """
+    try:
+        # Get database service
+        db_service = get_database_service()
+        
+        # Get the user's clout data
+        clout_data = await db_service.get_user_clout_by_day(user_id)
+        
+        return {
+            "user_id": user_id,
+            "clout_by_day": clout_data
+        }
+
+    except Exception as e:
+        err_trace = traceback.format_exc()
+        print(f"Error fetching user clout: {err_trace}")
+        raise HTTPException(status_code=500, detail=f"Failed to get user clout: {str(e)}")
+    
+@router.get("/{user_id}/track-clout")
+async def get_user_track_clout(
+    user_id: str
+):
+    """
+    Get a user's clout broken down by track
+    
+    Args:
+        user_id: User ID to get track clout for
+        
+    Returns:
+        List of tracks with their clout history
+    """
+    try:
+        # Get database service
+        db_service = get_database_service()
+        
+        # Get the user's track clout data
+        track_clout_data = await db_service.get_user_clout_by_track(user_id)
+        
+        return {
+            "user_id": user_id,
+            "tracks": track_clout_data
+        }
+
+    except Exception as e:
+        err_trace = traceback.format_exc()
+        print(f"Error fetching user track clout: {err_trace}")
+        raise HTTPException(status_code=500, detail=f"Failed to get user track clout: {str(e)}")

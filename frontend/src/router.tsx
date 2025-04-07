@@ -2,6 +2,7 @@
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import HomePage from './pages/HomePage';
 import { AboutPage } from './pages/AboutPage';
+import DashboardPage from './pages/DashboardPage';
 import AuthCallback from './pages/AuthCallback';
 import MainLayout from './components/layout/MainLayout';
 import RouteTracker from './components/utils/RouteTracker';
@@ -30,6 +31,10 @@ const router = createBrowserRouter([
       {
         path: '/about',
         element: <AboutPage />
+      },
+      {
+        path: '/dashboard',
+        element: <DashboardPage />
       }
     ]
   },

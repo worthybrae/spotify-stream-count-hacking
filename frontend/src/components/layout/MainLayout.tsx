@@ -1,12 +1,23 @@
 // components/layout/MainLayout.tsx
-import { Outlet, Link } from 'react-router-dom';
+import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import BackgroundManager from './BackgroundManager';
 import { useState, useEffect } from 'react';
 import { SearchResult } from '@/types/search';
 import AuthStatus from '@/components/features/auth/AuthStatus';
+import { useAuth } from '@/contexts/AuthContext';
 
 const MainLayout = () => {
   const [selectedAlbum, setSelectedAlbum] = useState<SearchResult | null>(null);
+  const { user } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
+  
+  // Redirect unauthenticated users from dashboard to home
+  useEffect(() => {
+    if (location.pathname === '/dashboard' && !user) {
+      navigate('/');
+    }
+  }, [location.pathname, user, navigate]);
 
   // Listen for album selection through a custom event
   useEffect(() => {
@@ -31,11 +42,26 @@ const MainLayout = () => {
             <Link to="/" className="text-lg font-medium text-white">streamclout.io</Link>
             
             <div className="flex items-center gap-6">
-              
-              
               {/* Navigation Links */}
               <nav className="flex gap-6">
-                <Link to="/about" className="text-sm text-white/70 hover:text-white transition-colors">about</Link>
+                {user && (
+                  <Link 
+                    to="/dashboard" 
+                    className={`text-sm flex items-center gap-1 hover:text-white transition-colors ${
+                      location.pathname === '/dashboard' ? 'text-white' : 'text-white/70'
+                    }`}
+                  >
+                    <span>dashboard</span>
+                  </Link>
+                )}
+                <Link 
+                  to="/about" 
+                  className={`text-sm hover:text-white transition-colors ${
+                    location.pathname === '/about' ? 'text-white' : 'text-white/70'
+                  }`}
+                >
+                  about
+                </Link>
               </nav>
               {/* Auth Status Component */}
               <AuthStatus />

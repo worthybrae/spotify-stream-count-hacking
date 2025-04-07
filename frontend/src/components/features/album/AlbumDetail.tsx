@@ -13,14 +13,7 @@ interface AlbumDetailProps {
   loading: boolean;
   error: string | null;
   onBackToSearch: () => void;
-  albumDetails?: {
-    album_id: string;
-    album_name: string;
-    artist_id: string;
-    artist_name: string;
-    cover_art: string;
-    release_date: string;
-  } | null;
+  albumDetails: any; // Added to match your updated props
 }
 
 const AlbumDetail: React.FC<AlbumDetailProps> = ({
@@ -33,12 +26,9 @@ const AlbumDetail: React.FC<AlbumDetailProps> = ({
   albumDetails
 }) => {
   if (!selectedAlbum) return null;
-
-  // Use albumDetails if available, otherwise use selectedAlbum
-  const albumData = albumDetails || selectedAlbum;
-
+  
   return (
-    <div className="w-full" style={{ maxHeight: 'calc(100vh - 6rem)' }}>
+    <div className="w-full overflow-auto" style={{ maxHeight: 'calc(100vh - 6rem)' }}>
       <button
         onClick={onBackToSearch}
         className="flex items-center gap-2 text-white/60 hover:text-white transition-colors mb-4"
@@ -46,33 +36,33 @@ const AlbumDetail: React.FC<AlbumDetailProps> = ({
         <ArrowLeft className="w-4 h-4" />
         Back to Search
       </button>
-
+      
       {error && (
         <div className="bg-red-500/20 border border-red-500/30 p-4 rounded-lg text-red-300 mb-4">
           {error}
         </div>
       )}
-
-      <Card className="p-4 md:p-6 bg-black/40 border-white/10 h-full">
+      
+      <Card className="p-4 md:p-6 bg-black/40 border-white/10">
         {/* Album Header with Performance Stats */}
-        <AlbumHeader 
-          album={albumData} 
-          totalStreams={totalStreams} 
+        <AlbumHeader
+          album={selectedAlbum}
+          totalStreams={totalStreams}
           tracks={tracks}
         />
-
+        
         {/* Loading state */}
         {loading ? (
           <div className="flex items-center justify-center h-32 mt-6">
             <Loader2 className="w-8 h-8 animate-spin text-white/40" />
           </div>
         ) : (
-          <div className="space-y-6">                              
+          <div className="space-y-6">
             {/* Track Cards */}
             {tracks.length > 0 ? (
-              <TrackCards 
+              <TrackCards
                 tracks={tracks}
-                selectedAlbum={albumData}
+                selectedAlbum={albumDetails || selectedAlbum}
               />
             ) : (
               <div className="text-center py-8 text-white/60">
