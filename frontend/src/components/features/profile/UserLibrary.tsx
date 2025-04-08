@@ -1,8 +1,8 @@
 // components/features/profile/UserLibrary.tsx
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Loader2, ChevronLeft, ChevronRight, Calendar, Check } from 'lucide-react';
+import { Loader2, ChevronLeft, ChevronRight, Calendar, RefreshCw, Check } from 'lucide-react';
 import axios from 'axios';
 import { useAuth } from '@/contexts/AuthContext';
 import { Track, GroupedTrack } from '@/types/api';
@@ -47,18 +47,12 @@ const UserLibrary: React.FC<UserLibraryProps> = ({ userId, useExtendedView = fal
   const [hasMore, setHasMore] = useState<boolean>(true);
   const [createdDate, setCreatedDate] = useState<string>('');
   const [positionRange, setPositionRange] = useState<{min: number, max: number}>({min: 0, max: 0});
-  const [refreshingData, _] = useState<boolean>(false);
+  const [refreshingData, setRefreshingData] = useState<boolean>(false);
   const [lastRefreshed, setLastRefreshed] = useState<string>('');
   const [refreshedToday, setRefreshedToday] = useState<boolean>(false);
-  const { spotifyToken, isLoading: authLoading } = useAuth();
+  const { spotifyToken } = useAuth();
   
-  // Add a ref to track if data has been loaded
-  const dataLoadedRef = useRef<boolean>(false);
-  // Add a ref to track initial mount
-  const initialMountRef = useRef<boolean>(true);
-  // Track retry attempts
-  const [retryCount, setRetryCount] = useState(0);
-  const maxRetries = 3;
+  
 
   // Format date as relative time (e.g., "2 hours ago", "Just now", etc.), accounting for timezone
   const formatRelativeTime = (dateString: string): string => {
@@ -96,7 +90,7 @@ const UserLibrary: React.FC<UserLibraryProps> = ({ userId, useExtendedView = fal
   
   // Function to fetch track clout data
   const fetchTrackClout = async (userId: string) => {
-    if (!userId) return {};
+    if (!userId || !spotifyToken) return {};
     
     try {
       const api = axios.create({
@@ -164,16 +158,48 @@ const UserLibrary: React.FC<UserLibraryProps> = ({ userId, useExtendedView = fal
     }
   };
   
+  // Function to refresh user data
+  const refreshUserData = async () => {
+    if (!userId || !spotifyToken) {
+      setError('You need to be logged in to refresh data');
+      return;
+    }
+    
+    setRefreshingData(true);
+    setError(null);
+    
+    try {
+      const api = axios.create({
+        baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8000',
+        headers: {
+          'X-API-Key': import.meta.env.VITE_API_KEY || 'dev-key',
+        },
+      });
+      
+      await api.get(`/tracks/${userId}`, {
+        params: {
+          access_token: spotifyToken,
+          force: true
+        }
+      });
+      
+      // Update check-in status and refresh tracks
+      await fetchCheckInStatus();
+      await fetchTopTracks(1);
+      
+      // Reset to page 1 after refresh
+      setPage(1);
+    } catch (err) {
+      console.error('Error refreshing user data:', err);
+      setError('Failed to refresh data');
+    } finally {
+      setRefreshingData(false);
+    }
+  };
   
   // Fetch top tracks with pagination
   const fetchTopTracks = useCallback(async (pageNum: number = 1) => {
-    if (!userId) return;
-    
-    // Skip if we're still loading auth
-    if (authLoading) {
-      console.log('Auth is still loading, delaying track fetch');
-      return;
-    }
+    if (!userId || !spotifyToken) return;
     
     setLoading(true);
     setError(null);
@@ -189,20 +215,15 @@ const UserLibrary: React.FC<UserLibraryProps> = ({ userId, useExtendedView = fal
       const offset = (pageNum - 1) * limit;
       
       // Use the updated API with pagination
-      console.log(`Fetching top tracks for user ${userId}, page ${pageNum}, limit ${limit}, spotifyToken: ${spotifyToken ? 'present' : 'missing'}`);
-      
-      // Include the access_token in the request params if available
-      const params: any = {
-        limit,
-        offset,
-        sort_by: 'recent'
-      };
-      
-      if (spotifyToken) {
-        params.access_token = spotifyToken;
-      }
-      
-      const response = await api.get(`/tracks/${userId}`, { params });
+      console.log(`Fetching top tracks for user ${userId}, page ${pageNum}, limit ${limit}`);
+      const response = await api.get(`/tracks/${userId}`, {
+        params: {
+          access_token: spotifyToken,
+          limit,
+          offset,
+          sort_by: 'recent'
+        }
+      });
       
       // Fetch track clout data
       console.log('Fetching track clout data');
@@ -213,12 +234,6 @@ const UserLibrary: React.FC<UserLibraryProps> = ({ userId, useExtendedView = fal
         
         // If we received fewer tracks than requested, there are no more results
         setHasMore(response.data.tracks.length >= limit);
-        
-        // Mark that we've successfully loaded data
-        dataLoadedRef.current = true;
-        
-        // Reset retry count after successful fetch
-        setRetryCount(0);
         
         // Convert tracks to the format expected by our existing processor
         const convertedTracks: ExtendedTrack[] = response.data.tracks.map((track: any) => {
@@ -310,87 +325,34 @@ const UserLibrary: React.FC<UserLibraryProps> = ({ userId, useExtendedView = fal
         console.log(`Processed ${processedWithClout.length} tracks`);
         setProcessedTracks(processedWithClout);
       } else {
-        console.warn('Invalid response format or no tracks found', response.data);
-        
-        // If we receive an empty response, but expected data, increment retry count
-        if (response.data && (!response.data.tracks || response.data.tracks.length === 0)) {
-          const newRetryCount = retryCount + 1;
-          setRetryCount(newRetryCount);
-          
-          // If we haven't maxed out retries, schedule another attempt
-          if (newRetryCount < maxRetries) {
-            console.log(`No tracks found, scheduling retry #${newRetryCount}...`);
-            
-            // Use exponential backoff for retries
-            const delay = Math.pow(2, newRetryCount) * 1000; // 2s, 4s, 8s
-            
-            setTimeout(() => {
-              console.log(`Executing retry #${newRetryCount}`);
-              fetchTopTracks(pageNum);
-            }, delay);
-          } else {
-            setProcessedTracks([]);
-            setHasMore(false);
-            setError('No tracks found after multiple attempts. Try refreshing the data.');
-          }
-        } else {
-          setProcessedTracks([]);
-          setHasMore(false);
-        }
+        console.error('Invalid response format or no tracks found', response.data);
+        setProcessedTracks([]);
+        setHasMore(false);
       }
     } catch (err) {
       console.error('Error fetching top tracks:', err);
-      
-      // Increment retry count if we get an error
-      const newRetryCount = retryCount + 1;
-      setRetryCount(newRetryCount);
-      
-      // If we haven't maxed out retries, try again
-      if (newRetryCount < maxRetries) {
-        console.log(`Error fetching tracks, scheduling retry #${newRetryCount}...`);
-        
-        // Use exponential backoff for retries
-        const delay = Math.pow(2, newRetryCount) * 1000;
-        
-        setTimeout(() => {
-          console.log(`Executing retry #${newRetryCount}`);
-          fetchTopTracks(pageNum);
-        }, delay);
-      } else {
-        setError('Failed to load top tracks. Please try refreshing the data or login again.');
-        setHasMore(false);
-      }
+      setError('Failed to load top tracks');
+      setHasMore(false);
     } finally {
       setLoading(false);
     }
-  }, [userId, spotifyToken, limit, authLoading, retryCount]);
+  }, [userId, spotifyToken, limit]);
   
-  // Reset pagination when sort changes and fetch data
+  // Reset pagination when sort changes
   useEffect(() => {
-    // Skip initial effect on mount to prevent double fetching
-    if (initialMountRef.current) {
-      initialMountRef.current = false;
-      return;
-    }
-    
     setPage(1);
     fetchTopTracks(1);
   }, [fetchTopTracks]);
   
-  // Load tracks and check-in status on component mount and when auth/token changes
+  // Load tracks and check-in status on component mount
   useEffect(() => {
-    if (userId && !authLoading) {
-      // Always fetch the latest data when the component mounts or auth changes
-      console.log('Loading user data, userId:', userId, 'token:', spotifyToken ? 'present' : 'missing');
+    if (userId && spotifyToken) {
       fetchTopTracks(page);
       fetchCheckInStatus();
-      
-      // Mark that data has been requested
-      dataLoadedRef.current = true;
-    } else if (!authLoading) {
+    } else {
       setLoading(false);
     }
-  }, [userId, spotifyToken, authLoading, fetchTopTracks, page]);
+  }, [userId, spotifyToken, fetchTopTracks, page]);
   
   // Handle pagination
   const handleNextPage = () => {
@@ -449,32 +411,40 @@ const UserLibrary: React.FC<UserLibraryProps> = ({ userId, useExtendedView = fal
               </div>
             </div>
             
-            {/* Last updated status */}
-            <div className="flex items-center text-xs text-white/60">
-              {refreshingData ? (
-                <div className="flex items-center">
-                  <Loader2 className="h-3 w-3 mr-2 animate-spin" />
-                  <span>Updating...</span>
-                </div>
-              ) : (
-                <div className="flex items-center">
-                  {refreshedToday ? (
-                    <Check className="h-3 w-3 mr-2 text-green-400" />
-                  ) : (
-                    <Calendar className="h-3 w-3 mr-2" />
-                  )}
-                  <span>
-                    {lastRefreshed && lastRefreshed !== 'Never' && lastRefreshed !== 'Unknown'
-                      ? `Last updated: ${formatRelativeTime(lastRefreshed)}`
-                      : 'Not yet updated'}
-                  </span>
-                </div>
-              )}
-            </div>
+            {/* Refresh button */}
+            {refreshedToday ? (
+              <Button 
+                size="sm"
+                className="bg-green-600 hover:bg-green-600 text-white cursor-default flex items-center gap-1"
+                disabled={true}
+              >
+                <Check className="h-4 w-4" />
+                <span>Updated Today</span>
+              </Button>
+            ) : (
+              <Button 
+                size="sm"
+                className="bg-red-600 hover:bg-red-700 text-white flex items-center gap-1"
+                onClick={refreshUserData}
+                disabled={refreshingData}
+              >
+                {refreshingData ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="h-4 w-4" />
+                )}
+                <span>Refresh Data</span>
+              </Button>
+            )}
           </div>
           
-          <div className="flex items-center">
+          <div className="flex justify-between items-center">
             <p className="text-xs text-white/60">Recent top 50 short term tracks</p>
+            {lastRefreshed && lastRefreshed !== 'Never' && lastRefreshed !== 'Unknown' && (
+              <p className="text-xs text-white/60">
+                Last refreshed: {formatRelativeTime(lastRefreshed)}
+              </p>
+            )}
           </div>
         </div>
       </div>
@@ -486,14 +456,10 @@ const UserLibrary: React.FC<UserLibraryProps> = ({ userId, useExtendedView = fal
             <Loader2 className="w-8 h-8 animate-spin text-white/40" />
           </div>
         ) : error ? (
-          <div className="flex flex-col items-center justify-center py-8">
-            <div className="text-red-400 text-center mb-4">{error}</div>
-            <p className="text-xs text-white/60">Try signing out and back in again</p>
-          </div>
+          <div className="text-red-400 text-center py-4">{error}</div>
         ) : processedTracks.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-8 text-white/60">
-            <p className="mb-4">No tracks found. We're working on loading your data.</p>
-            <p className="text-xs">If this persists, try signing out and back in again</p>
+          <div className="text-center py-8 text-white/60">
+            No tracks found. Click "Refresh Data" to see your listening data.
           </div>
         ) : (
           <div className="space-y-3 pr-1">

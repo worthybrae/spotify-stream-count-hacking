@@ -148,7 +148,7 @@ const HomePage = () => {
             </div>
             
             {/* Features section */}
-            <h2 className="text-2xl font-bold text-white mb-4">Premium Features</h2>
+            <h2 className="text-2xl font-bold text-white mb-4">Features</h2>
             <div className="grid grid-cols-1 gap-4">
               <Feature 
                 icon={<Sparkles className="h-5 w-5 text-purple-400" />}

@@ -37,7 +37,7 @@ app.conf.worker_concurrency = os.cpu_count()
 app.conf.beat_schedule = {
     'update-albums-daily': {
         'task': 'tasks.fetch_albums_batch',
-        'schedule': crontab(hour=1, minute=0),  # Runs at 5:32pm every day
+        'schedule': crontab(hour=3, minute=0),  # Runs at 5:32pm every day
         'options': {'expires': 21600}
     },
 }

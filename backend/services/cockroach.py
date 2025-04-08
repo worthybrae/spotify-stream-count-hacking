@@ -122,7 +122,7 @@ class DatabaseService:
         async with get_db() as conn:
             results = await conn.fetch("""
                 SELECT 
-                    distinct album_id, 
+                    distinct album_id
                     
                 FROM tracks
                 ORDER BY album_id DESC
