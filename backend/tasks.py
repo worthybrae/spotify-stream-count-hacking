@@ -118,10 +118,10 @@ async def _fetch_album_metrics_async(album):
         
         # Prepare data for the next task
         result = {
-            "album_id": album["album_id"],
-            "album_name": album["album_name"],
-            "artist_id": album["artist_id"],
-            "artist_name": album["artist_name"],
+            "album_id": album_data.album_id,
+            "album_name": album_data.album_name,
+            "artist_id": album.artist_id,
+            "artist_name": album.artist_name,
             "tracks": []
         }
         
