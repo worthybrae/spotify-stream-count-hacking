@@ -8,6 +8,7 @@ __pycache__/
 
 .env.template
 .DS_Store
+*.json
 
 # Distribution / packaging
 .Python
