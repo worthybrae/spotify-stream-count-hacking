@@ -3,7 +3,7 @@ import { Loader2, ArrowLeft } from 'lucide-react';
 import { SearchResult } from '@/types/search';
 import { Track } from '@/types/api';
 import EnhancedTrackCard from '../tracks/EnhancedTrackCard';
-import EnhancedAlbumSidebar from './EnhancedAlbumSidebar';
+import EnhancedAlbumSidebar from '../tracks/EnhancedAlbumSidebar';
 import { processTrackData } from '@/lib/utils/dataProcessors';
 
 interface AlbumDetailProps {
