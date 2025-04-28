@@ -4,19 +4,37 @@ import { SearchResult } from '../types/search';
 import { Track } from '../types/api';
 import { processTrackData } from '@/lib/utils/dataProcessors';
 
-interface AlbumDataState {
+// Define interfaces for API response types
+interface AlbumDetails {
+  album_id: string;
+  album_name: string;
+  artist_id: string;
+  artist_name: string;
+  cover_art: string;
+  release_date: string;
+}
+
+interface AlbumApiResponse {
   tracks: Track[];
+  total_streams?: number;
+  album?: AlbumDetails;
+}
+
+interface ProcessedTrack extends Track {
+  streamHistory: StreamHistoryItem[];
+}
+
+interface StreamHistoryItem {
+  date: string;
+  streams: number;
+}
+
+interface AlbumDataState {
+  tracks: ProcessedTrack[];
   totalStreams: number;
   loading: boolean;
   error: string | null;
-  albumDetails: {
-    album_id: string;
-    album_name: string;
-    artist_id: string;
-    artist_name: string;
-    cover_art: string;
-    release_date: string;
-  } | null;
+  albumDetails: AlbumDetails | null;
 }
 
 export const useAlbumData = () => {
@@ -35,7 +53,7 @@ export const useAlbumData = () => {
 
     try {
       // Get all album data in a single call
-      const albumData = await getAlbumData(album.album_id);
+      const albumData = await getAlbumData(album.album_id) as AlbumApiResponse;
       console.log('Album data loaded:', albumData);
 
       if (albumData) {
@@ -43,14 +61,14 @@ export const useAlbumData = () => {
           console.log('Raw tracks sample:', albumData.tracks.slice(0, 5));
 
           // Check if the tracks have the day property (for stream history creation)
-          const hasDayProperty = albumData.tracks.some((track: any) => track.day);
+          const hasDayProperty = albumData.tracks.some((track: Track) => 'day' in track);
           console.log('Tracks have day property:', hasDayProperty);
 
           // Debug the track data structure
           console.log('Track data structure sample:', albumData.tracks.slice(0, 5));
 
           // Process tracks to group by track_id and add stream history
-          const processedTracks = processTrackData(albumData.tracks);
+          const processedTracks = processTrackData(albumData.tracks) as ProcessedTrack[];
           console.log('Processed tracks count:', processedTracks.length);
 
           // Log first processed track as sample
@@ -89,7 +107,7 @@ export const useAlbumData = () => {
         }));
       }
     } catch (error) {
-      console.error('Failed to fetch album data:', error);
+      console.error('Failed to fetch album data:', error instanceof Error ? error.message : String(error));
       setAlbumData(prev => ({
         ...prev,
         loading: false,

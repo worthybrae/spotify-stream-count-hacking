@@ -13,6 +13,7 @@ export interface Album {
   artist_name: string;
 }
 
+// Update the Track interface in types/api.ts
 export interface Track {
   track_id: string;
   name: string;
@@ -23,13 +24,13 @@ export interface Track {
   album_name?: string;
   cover_art?: string;
   day?: string; // Optional day property for tracking daily streams
+  stream_recorded_at?: string; // Add this property to fix the error
   clout_points?: number; // Added clout points property
   streamHistory?: Array<{  // Optional stream history for the grouped view
     date: string;
     streams: number;
   }>;
 }
-
 export interface AlbumResponse {
   album_id: string;
   album_name: string;

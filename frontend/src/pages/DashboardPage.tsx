@@ -9,10 +9,10 @@ import { Loader2 } from 'lucide-react';
 
 const DashboardPage = () => {
   const { user, isLoading } = useAuth();
-  
+
   // Calculate content height (viewport - header - footer)
   const contentHeight = 'calc(100vh - 5.5rem)';
-  
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -20,7 +20,7 @@ const DashboardPage = () => {
       </div>
     );
   }
-  
+
   if (!user) {
     // Redirect to home or show login prompt
     return (
@@ -35,7 +35,7 @@ const DashboardPage = () => {
             </p>
           </div>
         </div>
-        
+
         <div className="h-full flex items-center">
           <div className="w-full" style={{ maxHeight: contentHeight }}>
             <Card className="p-4 md:p-6 bg-black/40 border-white/10">
@@ -62,15 +62,15 @@ const DashboardPage = () => {
           </div>
         </div>
       </div>
-      
+
       {/* Right column - Streamclout Score, Top Clout Tracks, and Activity - Now 50% of the width */}
       <div className="lg:col-span-6 xl:col-span-6 space-y-6 overflow-auto" style={{ maxHeight: contentHeight }}>
         {/* Clout Score Component */}
         <CloutScoreComponent userId={user.id} />
-        
+
         {/* Top Clout Tracks Component - NEW */}
         <TopCloutTracks userId={user.id} />
-        
+
         {/* Activity Tracker */}
         <ActivityTracker userId={user.id} />
       </div>

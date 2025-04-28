@@ -3,7 +3,7 @@ import React, { useMemo } from 'react';
 import { Play, DollarSign, Star } from 'lucide-react';
 import { formatNumber, calculateRevenue } from '@/lib/utils/formatters';
 import { GroupedTrack } from '@/types/api';
-import MiniStreamChart from './MiniStreamChart';
+import UpdatedMiniStreamChart from './UpdatedMiniStreamChart';
 
 // Define the clout history type to avoid repeating it
 interface CloutHistoryItem {
@@ -29,7 +29,7 @@ interface ExtendedTrackCardProps {
 const ExtendedTrackCard: React.FC<ExtendedTrackCardProps> = ({ track, onClick }) => {
   // Calculate regular metrics
   const revenue = calculateRevenue(track.playcount || 0);
-  
+
   // Helper to check if the track has weekly stream data
   const hasWeeklyData = useMemo(() => {
     if (!track.streamHistory || track.streamHistory.length < 2) return false;
@@ -56,7 +56,7 @@ const ExtendedTrackCard: React.FC<ExtendedTrackCardProps> = ({ track, onClick })
           <span className="text-white/80 text-xs font-semibold">#{track.position}</span>
         </div>
       )}
-      
+
       {/* New badge - only show if isNew is true */}
       {track.isNew && (
         <div className="flex justify-end mb-1">
@@ -66,33 +66,33 @@ const ExtendedTrackCard: React.FC<ExtendedTrackCardProps> = ({ track, onClick })
           </div>
         </div>
       )}
-      
+
       {/* Desktop layout */}
       <div className="hidden md:flex">
         {/* Album cover and track info */}
         <div className="flex items-center w-4/12">
           {/* Album cover */}
           <div className="flex items-center">
-            <img 
-              src={coverArt} 
-              alt={track.album_name || 'Album cover'} 
+            <img
+              src={coverArt}
+              alt={track.album_name || 'Album cover'}
               className="w-16 h-16 object-cover rounded-md mr-3"
             />
           </div>
-          
+
           {/* Track info */}
           <div className="flex-1 min-w-0">
             <h3 className="text-base font-medium text-white mb-1 truncate">{track.name}</h3>
             <p className="text-sm text-white/70 truncate">{track.artist_name || 'Unknown Artist'}</p>
           </div>
         </div>
-        
+
         {/* Charts section - extends slightly to the left */}
         <div className="w-3/12 px-3">
           <div className="h-16">
             {hasWeeklyData ? (
               <div className="h-12">
-                <MiniStreamChart track={track} />
+                <UpdatedMiniStreamChart track={track} />
                 <div className="flex justify-between text-xs text-gray-500">
                   <span>7d ago</span>
                   <span>now</span>
@@ -105,7 +105,7 @@ const ExtendedTrackCard: React.FC<ExtendedTrackCardProps> = ({ track, onClick })
             )}
           </div>
         </div>
-        
+
         {/* Metrics */}
         <div className="flex space-x-3 w-5/12">
           {/* Streams */}
@@ -118,7 +118,7 @@ const ExtendedTrackCard: React.FC<ExtendedTrackCardProps> = ({ track, onClick })
               {formatNumber(track.playcount || 0)}
             </span>
           </div>
-          
+
           {/* Revenue */}
           <div className="bg-amber-900/40 rounded-md px-3 py-2 flex flex-col flex-1">
             <div className="flex items-center">
@@ -129,7 +129,7 @@ const ExtendedTrackCard: React.FC<ExtendedTrackCardProps> = ({ track, onClick })
               ${formatNumber(revenue)}
             </span>
           </div>
-          
+
           {/* Clout Points */}
           <div className="bg-blue-900/40 rounded-md px-3 py-2 flex flex-col flex-1">
             <div className="flex items-center">
@@ -151,26 +151,26 @@ const ExtendedTrackCard: React.FC<ExtendedTrackCardProps> = ({ track, onClick })
         <div className="flex mb-3">
           {/* Album cover */}
           <div className="flex items-center">
-            <img 
-              src={coverArt} 
-              alt={track.album_name || 'Album cover'} 
+            <img
+              src={coverArt}
+              alt={track.album_name || 'Album cover'}
               className="w-14 h-14 object-cover rounded-md mr-3"
             />
           </div>
-          
+
           {/* Track info */}
           <div className="flex-1 min-w-0">
             <h3 className="text-base font-medium text-white mb-1 truncate">{track.name}</h3>
             <p className="text-sm text-white/70 truncate">{track.artist_name || 'Unknown Artist'}</p>
           </div>
         </div>
-        
+
         {/* Chart in middle row - extends slightly to the left */}
         <div className="mb-3 -ml-2">
           {hasWeeklyData ? (
             <div>
               <div className="h-8">
-                <MiniStreamChart track={track} />
+                <UpdatedMiniStreamChart track={track} />
               </div>
               <div className="flex justify-between text-xs text-gray-500">
                 <span>7d ago</span>
@@ -183,7 +183,7 @@ const ExtendedTrackCard: React.FC<ExtendedTrackCardProps> = ({ track, onClick })
             </div>
           )}
         </div>
-        
+
         {/* Metrics in bottom row */}
         <div className="grid grid-cols-3 gap-3">
           {/* Streams */}
@@ -196,7 +196,7 @@ const ExtendedTrackCard: React.FC<ExtendedTrackCardProps> = ({ track, onClick })
               {formatNumber(track.playcount || 0)}
             </span>
           </div>
-          
+
           {/* Revenue */}
           <div className="bg-amber-900/40 rounded-md px-3 py-2 flex flex-col">
             <div className="flex items-center">
@@ -207,7 +207,7 @@ const ExtendedTrackCard: React.FC<ExtendedTrackCardProps> = ({ track, onClick })
               ${formatNumber(revenue)}
             </span>
           </div>
-          
+
           {/* Clout Points */}
           <div className="bg-blue-900/40 rounded-md px-3 py-2 flex flex-col">
             <div className="flex items-center">

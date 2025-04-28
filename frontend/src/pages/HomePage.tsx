@@ -1,5 +1,4 @@
 // HomePage.tsx
-import { useState } from 'react';
 import SearchSection from '@/components/features/search/SearchSection';
 import '@/styles/scrollbar.css'; // Import scrollbar hiding CSS
 import EnhancedAlbumDetail from '@/components/features/album/UpdatedAlbumDetail';

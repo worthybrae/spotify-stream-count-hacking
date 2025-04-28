@@ -2,11 +2,22 @@
 import _ from 'lodash';
 import { Track } from '@/types/api';
 
+interface StreamHistoryItem {
+  date: string;
+  streams: number;
+}
+
+interface TrackWithDay extends Track {
+  day?: string;
+  stream_recorded_at?: string;
+}
+
+interface TrackWithHistory extends Track {
+  streamHistory?: StreamHistoryItem[];
+}
+
 interface GroupedTrack extends Track {
-  streamHistory: Array<{
-    date: string;
-    streams: number;
-  }>;
+  streamHistory: StreamHistoryItem[];
   clout_points?: number;
   isNew?: boolean;
 }
@@ -30,8 +41,8 @@ export const processTrackData = (rawTracks: Track[]): GroupedTrack[] => {
     console.log('[processTrackData] Sample track record:', rawTracks[0]);
 
     // Check for different data structures
-    const hasDayProperty = rawTracks.some((track: any) => track.day || track.stream_recorded_at);
-    const hasStreamHistoryProperty = rawTracks.some((track: any) =>
+    const hasDayProperty = rawTracks.some((track: TrackWithDay) => track.day || track.stream_recorded_at);
+    const hasStreamHistoryProperty = rawTracks.some((track: TrackWithHistory) =>
       track.streamHistory && track.streamHistory.length > 0
     );
 
@@ -51,28 +62,30 @@ export const processTrackData = (rawTracks: Track[]): GroupedTrack[] => {
     // Get the track with the max playcount to use as base
     const trackWithMaxPlaycount = _.maxBy(trackItems, 'playcount') || trackItems[0];
 
-    // Create stream history from existing data or generate synthetic data
-    let streamHistory: { date: string; streams: number; }[] = [];
+    // Create stream history from existing data
+    let streamHistory: StreamHistoryItem[] = [];
 
     // Case 1: Track already has streamHistory property
-    if (trackItems.some(track =>
-      (track as any).streamHistory &&
-      Array.isArray((track as any).streamHistory) &&
-      (track as any).streamHistory.length > 0
-    )) {
+    if (trackItems.some(track => {
+      const trackWithHistory = track as TrackWithHistory;
+      return trackWithHistory.streamHistory &&
+        Array.isArray(trackWithHistory.streamHistory) &&
+        trackWithHistory.streamHistory.length > 0;
+    })) {
       // Find the track with streamHistory
-      const trackWithHistory = trackItems.find(track =>
-        (track as any).streamHistory &&
-        Array.isArray((track as any).streamHistory) &&
-        (track as any).streamHistory.length > 0
-      );
+      const trackWithHistory = trackItems.find(track => {
+        const castedTrack = track as TrackWithHistory;
+        return castedTrack.streamHistory &&
+          Array.isArray(castedTrack.streamHistory) &&
+          castedTrack.streamHistory.length > 0;
+      }) as TrackWithHistory;
 
-      if (trackWithHistory) {
-        const existingHistory = (trackWithHistory as any).streamHistory;
+      if (trackWithHistory && trackWithHistory.streamHistory) {
+        const existingHistory = trackWithHistory.streamHistory;
 
         streamHistory = existingHistory
-          .filter((item: any) => item && typeof item.date === 'string' && typeof item.streams === 'number')
-          .map((item: any) => ({
+          .filter((item: StreamHistoryItem) => item && typeof item.date === 'string' && typeof item.streams === 'number')
+          .map((item: StreamHistoryItem) => ({
             date: item.date,
             streams: item.streams
           }));
@@ -81,13 +94,13 @@ export const processTrackData = (rawTracks: Track[]): GroupedTrack[] => {
       }
     }
     // Case 2: Tracks have day property or stream_recorded_at - create streamHistory from day-based data
-    else if (trackItems.some((track: any) => track.day || track.stream_recorded_at)) {
+    else if (trackItems.some((track: TrackWithDay) => track.day || track.stream_recorded_at)) {
       // Filter tracks that have the date property
-      const tracksWithDay = trackItems.filter((track: any) => track.day || track.stream_recorded_at);
+      const tracksWithDay = trackItems.filter((track: TrackWithDay) => track.day || track.stream_recorded_at) as TrackWithDay[];
 
       // Map to a consistent date property
       streamHistory = tracksWithDay.map(track => ({
-        date: (track as any).stream_recorded_at || (track as any).day,
+        date: track.stream_recorded_at || track.day || '',
         streams: track.playcount || 0
       }));
 
@@ -101,27 +114,15 @@ export const processTrackData = (rawTracks: Track[]): GroupedTrack[] => {
       console.log(`[processTrackData] Track ${trackWithMaxPlaycount.name}: Created ${streamHistory.length} stream history points from day property`);
     }
 
-    // Case 3: Generate synthetic data if we still don't have stream history
+    // If we still don't have any stream history, use current date and playcount
     if (streamHistory.length === 0) {
-      console.log(`[processTrackData] Track ${trackWithMaxPlaycount.name}: Generating synthetic stream history`);
+      console.log(`[processTrackData] Track ${trackWithMaxPlaycount.name}: Using current date and playcount as single data point`);
 
-      const playcount = trackWithMaxPlaycount.playcount || 100;
-      const today = new Date();
-
-      // Create 7 days of data with a realistic growth pattern
-      for (let i = 0; i < 7; i++) {
-        const date = new Date(today);
-        date.setDate(date.getDate() - (6 - i));
-
-        // Create a realistic growth curve (70% to 100% of current playcount)
-        const growthFactor = 0.7 + ((0.3 / 6) * i);
-        const streams = Math.round(playcount * growthFactor);
-
-        streamHistory.push({
-          date: date.toISOString().split('T')[0],
-          streams
-        });
-      }
+      // Use current date and playcount as a single data point
+      streamHistory = [{
+        date: new Date().toISOString().split('T')[0],
+        streams: trackWithMaxPlaycount.playcount || 0
+      }];
     }
 
     // Create final track object with stream history
@@ -131,14 +132,18 @@ export const processTrackData = (rawTracks: Track[]): GroupedTrack[] => {
     };
 
     // Add clout points if available on any track in the group
-    const trackWithClout = trackItems.find(track => (track as any).clout_points !== undefined);
+    const trackWithClout = trackItems.find(track => {
+      const trackWithProps = track as TrackWithHistory & { clout_points?: number };
+      return trackWithProps.clout_points !== undefined;
+    }) as (Track & { clout_points?: number }) | undefined;
+
     if (trackWithClout) {
-      groupedTrack.clout_points = (trackWithClout as any).clout_points;
+      groupedTrack.clout_points = trackWithClout.clout_points;
     }
 
     // Mark as new if it has clout points above threshold
     groupedTrack.isNew = groupedTrack.clout_points !== undefined &&
-                         groupedTrack.clout_points > 10;
+                        groupedTrack.clout_points > 10;
 
     return groupedTrack;
   });
@@ -151,45 +156,33 @@ export const processTrackData = (rawTracks: Track[]): GroupedTrack[] => {
  * Extract and process streaming data from track history
  * This helper function is useful for retrieving streaming history from tracks
  */
-export const extractStreamHistory = (track: Track): Array<{date: string, streams: number}> => {
-  // Case 1: Track already has streamHistory property
-  if ((track as any).streamHistory &&
-      Array.isArray((track as any).streamHistory) &&
-      (track as any).streamHistory.length > 0) {
+export const extractStreamHistory = (track: Track): StreamHistoryItem[] => {
+  // Cast to appropriate types
+  const trackWithHistory = track as TrackWithHistory;
+  const trackWithDay = track as TrackWithDay;
 
-    return (track as any).streamHistory.map((item: any) => ({
+  // Case 1: Track already has streamHistory property
+  if (trackWithHistory.streamHistory &&
+      Array.isArray(trackWithHistory.streamHistory) &&
+      trackWithHistory.streamHistory.length > 0) {
+
+    return trackWithHistory.streamHistory.map((item: StreamHistoryItem) => ({
       date: item.date,
       streams: item.streams
     }));
   }
 
   // Case 2: Track has day property or stream_recorded_at
-  if ((track as any).day || (track as any).stream_recorded_at) {
+  if (trackWithDay.day || trackWithDay.stream_recorded_at) {
     return [{
-      date: (track as any).stream_recorded_at || (track as any).day,
+      date: trackWithDay.stream_recorded_at || trackWithDay.day || '',
       streams: track.playcount || 0
     }];
   }
 
-  // Case 3: Generate synthetic data
-  const playcount = track.playcount || 100;
-  const today = new Date();
-  const result: Array<{date: string, streams: number}> = [];
-
-  // Create 7 days of synthetic data with a realistic growth pattern
-  for (let i = 0; i < 7; i++) {
-    const date = new Date(today);
-    date.setDate(date.getDate() - (6 - i));
-
-    // Create a realistic growth curve (70% to 100% of current playcount)
-    const growthFactor = 0.7 + ((0.3 / 6) * i);
-    const streams = Math.round(playcount * growthFactor);
-
-    result.push({
-      date: date.toISOString().split('T')[0],
-      streams
-    });
-  }
-
-  return result;
+  // If no stream history data is available, return single point with current date
+  return [{
+    date: new Date().toISOString().split('T')[0],
+    streams: track.playcount || 0
+  }];
 };

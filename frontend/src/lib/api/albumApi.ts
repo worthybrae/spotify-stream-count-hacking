@@ -1,6 +1,38 @@
 // Updated albumApi.ts
 import axios from 'axios';
-import { Track, StreamCount } from '../../types/api';
+import { Track } from '../../types/api';
+
+// Define interfaces for the API response
+interface AlbumDetails {
+  album_id: string;
+  album_name: string;
+  artist_id: string;
+  artist_name: string;
+  cover_art: string;
+  release_date: string;
+}
+
+interface AlbumDataResponse {
+  album: AlbumDetails;
+  tracks: Track[];
+  total_streams: number;
+}
+
+interface StreamHistoryItem {
+  date: string;
+  streams: number;
+}
+
+interface ApiResponseRow {
+  album_name?: string;
+  artist_name?: string;
+  cover_art?: string;
+  release_date?: string;
+  track_name?: string;
+  track_id?: string;
+  play_count?: number | string;
+  stream_recorded_at?: string;
+}
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8000',
@@ -10,19 +42,7 @@ const api = axios.create({
 });
 
 // Get album details with tracks and stream counts in a single call
-// Updated to handle the new API response format
-export const getAlbumData = async (albumId: string): Promise<{
-  album: {
-    album_id: string;
-    album_name: string;
-    artist_id: string;
-    artist_name: string;
-    cover_art: string;
-    release_date: string;
-  };
-  tracks: Track[];
-  total_streams: number;
-}> => {
+export const getAlbumData = async (albumId: string): Promise<AlbumDataResponse> => {
   try {
     const response = await api.get(`/albums/${albumId}`);
     console.log('Raw album data response:', response.data);
@@ -33,8 +53,8 @@ export const getAlbumData = async (albumId: string): Promise<{
     }
 
     // Extract album details from the first row
-    const firstRow = response.data[0];
-    const album = {
+    const firstRow = response.data[0] as ApiResponseRow;
+    const album: AlbumDetails = {
       album_id: albumId,
       album_name: firstRow.album_name || '',
       artist_id: '', // This might not be in the response anymore
@@ -44,7 +64,7 @@ export const getAlbumData = async (albumId: string): Promise<{
     };
 
     // Process tracks - group by track_name since track_id might not be unique
-    const trackMap = new Map<string, Track>();
+    const trackMap = new Map<string, Track & { streamHistory: StreamHistoryItem[] }>();
     let totalStreams = 0;
 
     // Create a map of dates for stream history
@@ -56,7 +76,7 @@ export const getAlbumData = async (albumId: string): Promise<{
     sevenDaysAgo.setDate(today.getDate() - 7);
 
     // First, collect all dates from the data to create stream history
-    response.data.forEach((row: any) => {
+    response.data.forEach((row: ApiResponseRow) => {
       if (row.stream_recorded_at) {
         const dateStr = row.stream_recorded_at.split('T')[0]; // Ensure we just have the date part
         if (!dateMap.has(dateStr)) {
@@ -69,7 +89,7 @@ export const getAlbumData = async (albumId: string): Promise<{
     const sortedDates = Array.from(dateMap.values()).sort((a, b) => a.getTime() - b.getTime());
 
     // Process each row to create tracks
-    response.data.forEach((row: any) => {
+    response.data.forEach((row: ApiResponseRow) => {
       // Skip rows without track_name
       if (!row.track_name) return;
 
@@ -103,7 +123,7 @@ export const getAlbumData = async (albumId: string): Promise<{
         totalStreams += playcount;
 
         // Create stream history for this track
-        const streamHistory: Array<{date: string, streams: number}> = [];
+        const streamHistory: StreamHistoryItem[] = [];
 
         // Add the specific date for this record with its playcount
         if (row.stream_recorded_at) {
@@ -130,15 +150,15 @@ export const getAlbumData = async (albumId: string): Promise<{
           });
         }
 
-        const track: Track = {
+        const track: Track & { streamHistory: StreamHistoryItem[] } = {
           track_id: row.track_id || `track_${trackMap.size + 1}`,
           name: row.track_name,
           playcount: playcount,
-          artist_name: row.artist_name,
+          artist_name: row.artist_name || '',
           artist_id: '', // This might not be present in the response
           album_id: albumId,
-          album_name: row.album_name,
-          cover_art: row.cover_art,
+          album_name: row.album_name || '',
+          cover_art: row.cover_art || '',
           day: row.stream_recorded_at ? row.stream_recorded_at.split('T')[0] : new Date().toISOString().split('T')[0],
           streamHistory: streamHistory
         };
@@ -153,18 +173,18 @@ export const getAlbumData = async (albumId: string): Promise<{
           const dateStr = row.stream_recorded_at.split('T')[0];
 
           // Check if we already have this date in stream history
-          const hasDate = (existingTrack as any).streamHistory &&
-                        (existingTrack as any).streamHistory.some((item: any) =>
+          const hasDate = existingTrack.streamHistory &&
+                        existingTrack.streamHistory.some((item) =>
                           item.date === dateStr);
 
-          if (!hasDate && (existingTrack as any).streamHistory) {
-            (existingTrack as any).streamHistory.push({
+          if (!hasDate && existingTrack.streamHistory) {
+            existingTrack.streamHistory.push({
               date: dateStr,
               streams: playcount
             });
 
             // Sort stream history by date
-            (existingTrack as any).streamHistory.sort((a: any, b: any) =>
+            existingTrack.streamHistory.sort((a, b) =>
               new Date(a.date).getTime() - new Date(b.date).getTime());
           }
         }
@@ -183,9 +203,9 @@ export const getAlbumData = async (albumId: string): Promise<{
 
     // Ensure all tracks have stream history
     tracks.forEach(track => {
-      if (!(track as any).streamHistory || (track as any).streamHistory.length === 0) {
+      if (!track.streamHistory || track.streamHistory.length === 0) {
         // Create synthetic data
-        const synthHistory: Array<{date: string, streams: number}> = [];
+        const synthHistory: StreamHistoryItem[] = [];
         const today = new Date();
 
         for (let i = 0; i < 7; i++) {
@@ -202,7 +222,7 @@ export const getAlbumData = async (albumId: string): Promise<{
           });
         }
 
-        (track as any).streamHistory = synthHistory;
+        track.streamHistory = synthHistory;
       }
     });
 
@@ -221,74 +241,6 @@ export const getAlbumData = async (albumId: string): Promise<{
   }
 };
 
-// Other functions remain unchanged
-export const saveAlbumData = async (
-  album: any,
-  tracks: Track[],
-  streamHistory: StreamCount[]
-): Promise<any> => {
-  try {
-    const requestData = {
-      album,
-      tracks,
-      streamHistory
-    };
-
-    const response = await api.post('/albums', requestData);
-    return response.data;
-  } catch (error) {
-    console.error('Failed to save album data:', error);
-    if (axios.isAxiosError(error)) {
-      console.error('API Error Details:', {
-        message: error.message,
-        status: error.response?.status,
-        data: error.response?.data
-      });
-    }
-    throw error;
-  }
-};
-
-export const getAllAlbums = async (limit: number = 50, offset: number = 0): Promise<any[]> => {
-  try {
-    const response = await api.get('/albums', {
-      params: { limit, offset }
-    });
-    return response.data;
-  } catch (error) {
-    console.error('Error fetching all albums:', error);
-    return [];
-  }
-};
-
-export const getAlbumStreamHistory = async (albumId: string, days: number = 7): Promise<{
-  album: {
-    album_id: string;
-    album_name: string;
-    artist_id: string;
-    artist_name: string;
-    cover_art: string;
-    release_date: string;
-  };
-  tracks: Track[];
-  total_streams: number;
-  stream_history: Array<{
-    date: string;
-    streams: number;
-    tracks_count: number;
-  }>;
-  daily_new_streams: Array<{
-    date: string;
-    new_streams: number;
-  }>;
-}> => {
-  try {
-    const response = await api.get(`/albums/${albumId}/streams`, {
-      params: { days }
-    });
-    return response.data;
-  } catch (error) {
-    console.error(`Error fetching album stream history for ${albumId}:`, error);
-    throw error;
-  }
+export default {
+  getAlbumData
 };

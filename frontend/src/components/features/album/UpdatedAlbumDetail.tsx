@@ -1,10 +1,30 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 import { Loader2, ArrowLeft } from 'lucide-react';
 import { SearchResult } from '@/types/search';
 import { Track } from '@/types/api';
 import EnhancedTrackCard from '../tracks/EnhancedTrackCard';
-import EnhancedAlbumSidebar from '../tracks/EnhancedAlbumSidebar';
+import EnhancedAlbumSidebar from './EnhancedAlbumSidebar';
 import { processTrackData } from '@/lib/utils/dataProcessors';
+
+// Define interfaces for types
+interface StreamHistoryItem {
+  date: string;
+  streams: number;
+}
+
+interface TrackWithHistory extends Track {
+  streamHistory?: StreamHistoryItem[];
+  hasRecentData?: boolean;
+}
+
+interface AlbumDetails {
+  album_id: string;
+  album_name: string;
+  artist_id: string;
+  artist_name: string;
+  cover_art: string;
+  release_date: string;
+}
 
 interface AlbumDetailProps {
   selectedAlbum: SearchResult | null;
@@ -13,7 +33,7 @@ interface AlbumDetailProps {
   loading: boolean;
   error: string | null;
   onBackToSearch: () => void;
-  albumDetails: any;
+  albumDetails: AlbumDetails | null;
 }
 
 const UpdatedAlbumDetail: React.FC<AlbumDetailProps> = ({
@@ -25,72 +45,84 @@ const UpdatedAlbumDetail: React.FC<AlbumDetailProps> = ({
   onBackToSearch,
   albumDetails
 }) => {
-  if (!selectedAlbum) return null;
+  // Initialize processed tracks and calculated total streams
+  const { processedTracks, calculatedTotalStreams } = useMemo(() => {
+    // Early return for empty tracks
+    if (!tracks || tracks.length === 0) {
+      return {
+        processedTracks: [],
+        calculatedTotalStreams: 0
+      };
+    }
 
-  // Get album details from either source
-  const album = albumDetails || selectedAlbum;
-
-  // Process and filter tracks
-  const { processedTracks, calculatedTotalStreams, filteredForWeeklyData } = useMemo(() => {
     // First process tracks to ensure they have streamHistory
     let processed = tracks;
 
     // Check if tracks already have streamHistory
-    const needsProcessing = !tracks.some(track =>
-      (track as any).streamHistory &&
-      Array.isArray((track as any).streamHistory) &&
-      (track as any).streamHistory.length > 0
-    );
+    const needsProcessing = !tracks.some(track => {
+      const trackWithHistory = track as TrackWithHistory;
+      return trackWithHistory.streamHistory &&
+        Array.isArray(trackWithHistory.streamHistory) &&
+        trackWithHistory.streamHistory.length > 0;
+    });
 
     // Process tracks if needed
     if (needsProcessing) {
-      processed = processTrackData(tracks);
+      processed = processTrackData(tracks) as TrackWithHistory[];
     }
 
     // Calculate the true total streams by finding max playcount for each track
     const totalCalcStreams = processed.reduce((sum, track) => sum + (track.playcount || 0), 0);
 
-    // Filter for weekly data (tracks with data in the last 7 days)
-    const today = new Date();
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(today.getDate() - 7);
-
-    const weeklyFiltered = processed.map(track => {
+    // Check for tracks with recent data - but we won't store this in a separate variable
+    // since it's not used elsewhere in the component
+    processed = processed.map(track => {
       // Create a copy of the track
-      const filteredTrack = { ...track };
+      const trackWithHistory = track as TrackWithHistory;
+      const updatedTrack: TrackWithHistory = { ...track };
 
       // Check if track has valid stream history
-      if ((track as any).streamHistory && Array.isArray((track as any).streamHistory)) {
+      if (trackWithHistory.streamHistory && Array.isArray(trackWithHistory.streamHistory)) {
+        // Get today and 7 days ago dates for filtering
+        const today = new Date();
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(today.getDate() - 7);
+
         // Filter stream history to last 7 days
-        const recentHistory = (track as any).streamHistory.filter((item: any) => {
+        const recentHistory = trackWithHistory.streamHistory.filter((item: StreamHistoryItem) => {
           if (!item || !item.date) return false;
           const itemDate = new Date(item.date);
           return itemDate >= sevenDaysAgo && itemDate <= today;
         });
 
         // Only keep recent history if it exists
-        if (recentHistory.length >= 2) {
-          (filteredTrack as any).streamHistory = recentHistory;
-          (filteredTrack as any).hasRecentData = true;
+        if (recentHistory.length >= 1) {
+          updatedTrack.streamHistory = recentHistory;
+          updatedTrack.hasRecentData = true;
         } else {
-          (filteredTrack as any).hasRecentData = false;
+          updatedTrack.hasRecentData = false;
         }
       } else {
-        (filteredTrack as any).hasRecentData = false;
+        updatedTrack.hasRecentData = false;
       }
 
-      return filteredTrack;
+      return updatedTrack;
     });
 
     return {
       processedTracks: processed,
-      calculatedTotalStreams: totalCalcStreams,
-      filteredForWeeklyData: weeklyFiltered
+      calculatedTotalStreams: totalCalcStreams
     };
   }, [tracks]);
 
   // Use calculated total streams or fallback to provided total
   const actualTotalStreams = calculatedTotalStreams > 0 ? calculatedTotalStreams : totalStreams;
+
+  // Return null if no selected album
+  if (!selectedAlbum) return null;
+
+  // Get album details from either source
+  const album = albumDetails || selectedAlbum;
 
   return (
     <div className="w-full">

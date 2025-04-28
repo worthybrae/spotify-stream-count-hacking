@@ -30,7 +30,7 @@ interface ExtendedGroupedTrack extends GroupedTrack {
 }
 
 import { processTrackData } from '@/lib/utils/dataProcessors';
-import TrackCard from '../tracks/SimpleTrackCard';
+import EnhancedTrackCard from '../tracks/EnhancedTrackCard';
 import ExtendedTrackCard from '../tracks/ExtendedTrackCard';
 
 interface UserLibraryProps {
@@ -51,8 +51,6 @@ const UserLibrary: React.FC<UserLibraryProps> = ({ userId, useExtendedView = fal
   const [lastRefreshed, setLastRefreshed] = useState<string>('');
   const [refreshedToday, setRefreshedToday] = useState<boolean>(false);
   const { spotifyToken } = useAuth();
-
-
 
   // Format date as relative time (e.g., "2 hours ago", "Just now", etc.), accounting for timezone
   const formatRelativeTime = (dateString: string): string => {
@@ -88,8 +86,28 @@ const UserLibrary: React.FC<UserLibraryProps> = ({ userId, useExtendedView = fal
     }
   };
 
+  // Define the track clout type
+  interface TrackCloutData {
+    track_id: string;
+    track_name: string;
+    artist_name: string;
+    album_id: string;
+    album_name?: string;
+    cover_art?: string;
+    clout_history: Array<{
+      day: string;
+      daily_clout: number;
+      cumulative_clout: number;
+    }>;
+  }
+
+  // Define the track clout response type
+  interface TrackCloutResponse {
+    tracks: TrackCloutData[];
+  }
+
   // Function to fetch track clout data
-  const fetchTrackClout = async (userId: string) => {
+  const fetchTrackClout = useCallback(async (userId: string) => {
     if (!userId || !spotifyToken) return {};
 
     try {
@@ -101,14 +119,14 @@ const UserLibrary: React.FC<UserLibraryProps> = ({ userId, useExtendedView = fal
       });
 
       console.log(`Fetching track clout data for user ${userId}`);
-      const response = await api.get(`/tracks/${userId}/track-clout`);
+      const response = await api.get<TrackCloutResponse>(`/tracks/${userId}/track-clout`);
 
       if (response.data && Array.isArray(response.data.tracks)) {
         console.log(`Received clout data for ${response.data.tracks.length} tracks`);
 
         // Convert to a map for easier lookup by track_id
-        const trackCloutMap: Record<string, any> = {};
-        response.data.tracks.forEach((track: any) => {
+        const trackCloutMap: Record<string, TrackCloutData> = {};
+        response.data.tracks.forEach((track) => {
           trackCloutMap[track.track_id] = track;
         });
         return trackCloutMap;
@@ -120,10 +138,10 @@ const UserLibrary: React.FC<UserLibraryProps> = ({ userId, useExtendedView = fal
       console.error('Error fetching track clout data:', err);
       return {};
     }
-  };
+  }, [spotifyToken]);
 
   // Function to check user's check-in status
-  const fetchCheckInStatus = async () => {
+  const fetchCheckInStatus = useCallback(async () => {
     if (!userId) return;
 
     try {
@@ -134,7 +152,7 @@ const UserLibrary: React.FC<UserLibraryProps> = ({ userId, useExtendedView = fal
         },
       });
 
-      const response = await api.get(`/tracks/${userId}/check-ins`);
+      const response = await api.get<string[]>(`/tracks/${userId}/check-ins`);
 
       if (response.data && Array.isArray(response.data) && response.data.length > 0) {
         // Get the most recent check-in date (make sure data is sorted)
@@ -151,12 +169,12 @@ const UserLibrary: React.FC<UserLibraryProps> = ({ userId, useExtendedView = fal
         setLastRefreshed('Never');
         setRefreshedToday(false);
       }
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Error fetching check-in status:', err);
       setLastRefreshed('Unknown');
       setRefreshedToday(false);
     }
-  };
+  }, [userId]);
 
   // Function to refresh user data
   const refreshUserData = async () => {
@@ -176,7 +194,8 @@ const UserLibrary: React.FC<UserLibraryProps> = ({ userId, useExtendedView = fal
         },
       });
 
-      await api.get(`/tracks/${userId}`, {
+      // Using the single user profile endpoint approach
+      await api.get<UserProfileResponse>(`/user/${userId}/profile`, {
         params: {
           access_token: spotifyToken,
           force: true
@@ -189,13 +208,40 @@ const UserLibrary: React.FC<UserLibraryProps> = ({ userId, useExtendedView = fal
 
       // Reset to page 1 after refresh
       setPage(1);
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Error refreshing user data:', err);
       setError('Failed to refresh data');
     } finally {
       setRefreshingData(false);
     }
   };
+
+  // Define the top tracks response type
+  interface StreamHistoryItem {
+    day: string;
+    playcount: number;
+  }
+
+  interface TopTrackItem {
+    track_id: string;
+    name: string;
+    artist_name: string;
+    artist_id: string;
+    album_id: string;
+    album_name: string;
+    cover_art: string;
+    position?: number;
+    created_at?: string;
+    stream_history?: StreamHistoryItem[];
+  }
+
+  interface TopTracksData {
+    tracks: TopTrackItem[];
+  }
+
+  interface UserProfileResponse {
+    top_tracks: TopTracksData;
+  }
 
   // Fetch top tracks with pagination
   const fetchTopTracks = useCallback(async (pageNum: number = 1) => {
@@ -214,9 +260,9 @@ const UserLibrary: React.FC<UserLibraryProps> = ({ userId, useExtendedView = fal
 
       const offset = (pageNum - 1) * limit;
 
-      // Use the updated API with pagination
+      // Use the updated API with single user profile endpoint
       console.log(`Fetching top tracks for user ${userId}, page ${pageNum}, limit ${limit}`);
-      const response = await api.get(`/tracks/${userId}`, {
+      const response = await api.get<UserProfileResponse>(`/user/${userId}/profile`, {
         params: {
           access_token: spotifyToken,
           limit,
@@ -229,14 +275,15 @@ const UserLibrary: React.FC<UserLibraryProps> = ({ userId, useExtendedView = fal
       console.log('Fetching track clout data');
       const trackCloutMap = await fetchTrackClout(userId);
 
-      if (response.data && Array.isArray(response.data.tracks)) {
-        console.log(`Received ${response.data.tracks.length} tracks`);
+      if (response.data && response.data.top_tracks && Array.isArray(response.data.top_tracks.tracks)) {
+        const tracksData = response.data.top_tracks;
+        console.log(`Received ${tracksData.tracks.length} tracks`);
 
         // If we received fewer tracks than requested, there are no more results
-        setHasMore(response.data.tracks.length >= limit);
+        setHasMore(tracksData.tracks.length >= limit);
 
         // Convert tracks to the format expected by our existing processor
-        const convertedTracks: ExtendedTrack[] = response.data.tracks.map((track: any) => {
+        const convertedTracks: ExtendedTrack[] = tracksData.tracks.map((track) => {
           // Get clout data for this track if available
           const cloutData = trackCloutMap[track.track_id];
 
@@ -263,7 +310,7 @@ const UserLibrary: React.FC<UserLibraryProps> = ({ userId, useExtendedView = fal
             clout_points: cloutPoints,
             // Convert stream_history to streamHistory format for processor
             streamHistory: track.stream_history
-              ? track.stream_history.map((item: any) => ({
+              ? track.stream_history.map((item) => ({
                   date: item.day,
                   streams: item.playcount
                 }))
@@ -336,36 +383,7 @@ const UserLibrary: React.FC<UserLibraryProps> = ({ userId, useExtendedView = fal
     } finally {
       setLoading(false);
     }
-  }, [userId, spotifyToken, limit]);
-
-  // Reset pagination when sort changes
-  useEffect(() => {
-    setPage(1);
-    fetchTopTracks(1);
-  }, [fetchTopTracks]);
-
-  // Load tracks and check-in status on component mount
-  useEffect(() => {
-    if (userId && spotifyToken) {
-      fetchTopTracks(page);
-      fetchCheckInStatus();
-    } else {
-      setLoading(false);
-    }
-  }, [userId, spotifyToken, fetchTopTracks, page]);
-
-  // Handle pagination
-  const handleNextPage = () => {
-    if (hasMore) {
-      setPage(prev => prev + 1);
-    }
-  };
-
-  const handlePrevPage = () => {
-    if (page > 1) {
-      setPage(prev => prev - 1);
-    }
-  };
+  }, [userId, spotifyToken, limit, fetchTrackClout]);
 
   // Function to check if a date is today (accounting for timezone)
   const isToday = (dateString: string): boolean => {
@@ -381,6 +399,34 @@ const UserLibrary: React.FC<UserLibraryProps> = ({ userId, useExtendedView = fal
       date.getDate() === today.getDate();
   };
 
+  // Reset pagination when sort changes
+  useEffect(() => {
+    setPage(1);
+    fetchTopTracks(1);
+  }, [fetchTopTracks]);
+
+  // Load tracks and check-in status on component mount
+  useEffect(() => {
+    if (userId && spotifyToken) {
+      fetchTopTracks(page);
+      fetchCheckInStatus();
+    } else {
+      setLoading(false);
+    }
+  }, [userId, spotifyToken, fetchTopTracks, page, fetchCheckInStatus]);
+
+  // Handle pagination
+  const handleNextPage = () => {
+    if (hasMore) {
+      setPage(prev => prev + 1);
+    }
+  };
+
+  const handlePrevPage = () => {
+    if (page > 1) {
+      setPage(prev => prev - 1);
+    }
+  };
 
   return (
     <Card className="h-full bg-black/40 border-white/10 flex flex-col overflow-hidden">
@@ -470,7 +516,7 @@ const UserLibrary: React.FC<UserLibraryProps> = ({ userId, useExtendedView = fal
                   track={track}
                 />
               ) : (
-                <TrackCard
+                <EnhancedTrackCard
                   key={track.track_id}
                   track={track}
                 />

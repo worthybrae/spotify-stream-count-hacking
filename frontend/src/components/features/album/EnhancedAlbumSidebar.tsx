@@ -119,13 +119,8 @@ const EnhancedAlbumSidebar: React.FC<EnhancedAlbumSidebarProps> = ({
         className="w-full bg-white/10 hover:bg-white/20 text-white border-white/20 py-6"
       >
         <Download className="h-5 w-5 mr-2" />
-        Download Stream Data
+        Download Streaming Data
       </Button>
-
-      {/* Updated info */}
-      <p className="text-center text-xs text-white/40 mt-4">
-        Data updated {new Date().toLocaleDateString()}
-      </p>
     </div>
   );
 };

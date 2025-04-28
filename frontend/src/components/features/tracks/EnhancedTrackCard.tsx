@@ -1,9 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { Track } from '@/types/api';
 import { formatNumber, formatRevenue, calculateRevenue } from '@/lib/utils/formatters';
-import MiniStreamChart from './MiniStreamChart';
-import { TrendingUp, Play, DollarSign, ChevronRight } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import UpdatedMiniStreamChart from './UpdatedMiniStreamChart';
+import { TrendingUp, Play, DollarSign } from 'lucide-react';
+
+// Define interface for stream history item
+interface StreamHistoryItem {
+  date: string;
+  streams: number;
+}
+
+// Extended Track interface with streamHistory
+interface TrackWithHistory extends Track {
+  streamHistory?: StreamHistoryItem[];
+}
 
 interface EnhancedTrackCardProps {
   track: Track;
@@ -11,27 +21,35 @@ interface EnhancedTrackCardProps {
 }
 
 const EnhancedTrackCard: React.FC<EnhancedTrackCardProps> = ({ track, onClick }) => {
-  // Parse date for display
-  const formattedDate = track.day ?
-    new Date(track.day).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric'
-    }) : 'Unknown';
-
   // Calculate revenue
   const revenue = calculateRevenue(track.playcount || 0);
 
   // Calculate growth percentage
   const [growth, setGrowth] = useState<number | null>(null);
   const [hasWeeklyData, setHasWeeklyData] = useState(false);
+  const [formattedDate, setFormattedDate] = useState<string>('Unknown');
+
+  // Cast track to extended interface
+  const trackWithHistory = track as TrackWithHistory;
 
   // Filter and check for valid stream history data
   useEffect(() => {
-    if ((track as any).streamHistory && Array.isArray((track as any).streamHistory) && (track as any).streamHistory.length > 1) {
-      const history = (track as any).streamHistory;
+    // Find the latest date from stream history
+    if (trackWithHistory.streamHistory &&
+        Array.isArray(trackWithHistory.streamHistory) &&
+        trackWithHistory.streamHistory.length > 0) {
+
+      const history = trackWithHistory.streamHistory;
 
       // Sort by date
       const sortedHistory = [...history].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+      // Get the latest date from the history
+      const latestDate = sortedHistory[sortedHistory.length - 1].date;
+      setFormattedDate(new Date(latestDate).toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric'
+      }));
 
       // Filter to last 7 days
       const today = new Date();
@@ -44,7 +62,7 @@ const EnhancedTrackCard: React.FC<EnhancedTrackCardProps> = ({ track, onClick })
       });
 
       // Only show data and calculate growth if we have recent data
-      if (last7DaysData.length >= 2) {
+      if (last7DaysData.length >= 1) {
         setHasWeeklyData(true);
 
         // Calculate growth from first point to last point
@@ -62,10 +80,25 @@ const EnhancedTrackCard: React.FC<EnhancedTrackCardProps> = ({ track, onClick })
         setGrowth(null);
       }
     } else {
+      // Fallback to track.day if streamHistory isn't available
+      if (track.day) {
+        setFormattedDate(new Date(track.day).toLocaleDateString('en-US', {
+          month: 'short',
+          day: 'numeric'
+        }));
+      } else if (track.stream_recorded_at) {
+        setFormattedDate(new Date(track.stream_recorded_at).toLocaleDateString('en-US', {
+          month: 'short',
+          day: 'numeric'
+        }));
+      } else {
+        setFormattedDate('Unknown');
+      }
+
       setHasWeeklyData(false);
       setGrowth(null);
     }
-  }, [track]);
+  }, [trackWithHistory, track.day, track.stream_recorded_at]);
 
   return (
     <div
@@ -86,7 +119,7 @@ const EnhancedTrackCard: React.FC<EnhancedTrackCardProps> = ({ track, onClick })
         <div className="flex-none w-[35%] h-16 px-2">
           {hasWeeklyData ? (
             <div className="h-full">
-              <MiniStreamChart track={track} height={48} />
+              <UpdatedMiniStreamChart track={track} height={48} />
             </div>
           ) : (
             <div className="h-full flex items-center justify-center text-white/40 text-xs">
@@ -154,7 +187,7 @@ const EnhancedTrackCard: React.FC<EnhancedTrackCardProps> = ({ track, onClick })
           <div className="w-[60%] h-16">
             {hasWeeklyData ? (
               <div className="h-full">
-                <MiniStreamChart track={track} height={48} />
+                <UpdatedMiniStreamChart track={track} height={48} />
               </div>
             ) : (
               <div className="h-full flex items-center justify-center text-white/40 text-xs">
