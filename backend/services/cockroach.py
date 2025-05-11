@@ -24,96 +24,102 @@ class DatabaseService:
     """
 
     # 1. Insert Album query
-    async def insert_album(self, conn, album: AlbumRecord):
+    async def insert_album(self, album: AlbumRecord):
         """Insert album using the provided template"""
-        await conn.execute(
-            """
-            INSERT INTO albums (
-                album_id,
-                name,
-                artist_name,
-                cover_art,
-                release_date
+        async with get_db() as conn:
+            async with conn.transaction():
+                await conn.execute(
+                    """
+                    INSERT INTO albums (
+                        album_id,
+                        name,
+                        artist_name,
+                        cover_art,
+                        release_date
 
-            )
-            VALUES (
-                $1,
-                $2,
-                $3,
-                $4,
-                $5
-            )
-            ON CONFLICT (
-                album_id
-            )
-            DO UPDATE SET
-                name = $2,
-                artist_name = $3,
-                cover_art = $4,
-                release_date = $5
+                    )
+                    VALUES (
+                        $1,
+                        $2,
+                        $3,
+                        $4,
+                        $5
+                    )
+                    ON CONFLICT (
+                        album_id
+                    )
+                    DO UPDATE SET
+                        name = $2,
+                        artist_name = $3,
+                        cover_art = $4,
+                        release_date = $5
 
-        """,
-            album.album_id,
-            album.album_name,
-            album.artist_name,
-            album.cover_art,
-            datetime.strptime(album.release_date, "%Y-%m-%d"),
-        )
+                """,
+                    album.album_id,
+                    album.album_name,
+                    album.artist_name,
+                    album.cover_art,
+                    datetime.strptime(album.release_date, "%Y-%m-%d"),
+                )
 
     # 2. Insert Track query
-    async def insert_track(self, conn, track: TrackRecord):
+    async def insert_track(self, track: TrackRecord):
         """Insert track using the provided template"""
-        await conn.execute(
-            """
-            INSERT INTO tracks (
-                track_id,
-                name,
-                album_id
-            )
-            VALUES (
-                $1,
-                $2,
-                $3
-            )
-            ON CONFLICT (
-                track_id
-            )
-            DO UPDATE
-            SET
-                name = $2,
-                album_id = $3
-        """,
-            track.track_id,
-            track.track_name,
-            track.album_id,
-        )
+        async with get_db() as conn:
+            async with conn.transaction():
+                await conn.execute(
+                    """
+                    INSERT INTO tracks (
+                        track_id,
+                        name,
+                        album_id
+                    )
+                    VALUES (
+                        $1,
+                        $2,
+                        $3
+                    )
+                    ON CONFLICT (
+                        track_id
+                    )
+                    DO UPDATE
+                    SET
+                        name = $2,
+                        album_id = $3
+                """,
+                    track.track_id,
+                    track.track_name,
+                    track.album_id,
+                )
 
     # 3. Insert Stream query
-    async def insert_stream(self, conn, stream: StreamRecord):
+    async def insert_stream(self, stream: StreamRecord):
         """Insert stream using the provided template"""
-        await conn.execute(
-            """
-            INSERT INTO streams (
-                track_id,
-                play_count,
-                album_id
-            )
-            VALUES (
-                $1,
-                $2,
-                $3
-            )
-            ON CONFLICT (
-                track_id,
-                play_count,
-                album_id
-            )
-            DO NOTHING
-        """,
-            stream.track_id,
-            stream.play_count,
-            stream.album_id,
-        )
+        async with get_db() as conn:
+            async with conn.transaction():
+                await conn.execute(
+                    """
+                    INSERT INTO streams (
+                        track_id,
+                        play_count,
+                        album_id
+                    )
+                    VALUES (
+                        $1,
+                        $2,
+                        $3
+                    )
+                    ON CONFLICT (
+                        track_id,
+                        play_count,
+                        album_id
+                    )
+                    DO NOTHING
+                """,
+                    stream.track_id,
+                    stream.play_count,
+                    stream.album_id,
+                )
 
     # DEPRECATED FOR NOW
     # 4. Insert User Top Track query

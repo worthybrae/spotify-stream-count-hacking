@@ -16,43 +16,43 @@ export function AuthCallback() {
         console.log('Auth callback already processing, skipping duplicate execution');
         return;
       }
-      
+
       processingRef.current = true;
       console.log('Auth callback started');
-      
+
       try {
         // Get the session after OAuth redirect
         const { data: { session }, error } = await supabase.auth.getSession();
-        
+
         if (error) {
           console.error('Session error:', error);
           throw error;
         }
-        
+
         console.log('Session retrieved:', session ? 'Session exists' : 'No session');
-        
+
         if (session) {
           // Save tokens to the database
           const userId = session.user.id;
           console.log('User ID:', userId);
-          
+
           const accessToken = session.provider_token;
           console.log('Access token exists:', !!accessToken);
           console.log('Access token length:', accessToken ? accessToken.length : 0);
-          
+
           const refreshToken = session.provider_refresh_token;
           console.log('Refresh token exists:', !!refreshToken);
           console.log('Refresh token length:', refreshToken ? refreshToken.length : 0);
-          
+
           // Fix: Convert expires_at properly
           // If expires_at is in seconds (as epoch), convert to milliseconds and create date
-          const expiresAtTimestamp = session.expires_at 
+          const expiresAtTimestamp = session.expires_at
             ? session.expires_at * 1000 // Convert seconds to milliseconds
             : Date.now() + 3600 * 1000; // Default to 1 hour from now if missing
-            
+
           const expiresAt = new Date(expiresAtTimestamp);
           console.log('Expires at:', expiresAt.toISOString(), 'Original timestamp:', session.expires_at);
-          
+
           // Ensure we have both tokens before proceeding
           if (!accessToken || !refreshToken) {
             console.error('Missing required tokens:', {
@@ -62,7 +62,7 @@ export function AuthCallback() {
             throw new Error('Authentication incomplete: Missing required tokens');
           }
         }
-        
+
         console.log('Auth callback completed, redirecting...');
         // Redirect to homepage after successful authentication
         navigate('/', { replace: true });
