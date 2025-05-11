@@ -1,8 +1,8 @@
 # tasks.py
 import asyncio
-from datetime import datetime
 
 from celery_init import app
+from models import StreamRecord
 from services.cockroach import DatabaseService
 from services.unofficial_spotify import TokenManager, UnofficialSpotifyService
 
@@ -114,114 +114,25 @@ async def _fetch_album_metrics_async(album):
     """Async implementation of the metrics fetching"""
     # Get Spotify service from singleton
     spotify = spotify_singleton.get_service()
-
+    db_service = db_singleton.get_service()
     try:
         # Get album data from Spotify API
         album_data = await spotify.get_album_tracks(album["album_id"])
-
-        # Prepare data for the next task
-        result = {
-            "album_id": album_data.album_id,
-            "album_name": album_data.album_name,
-            "artist_id": album_data.artist_id,  # Get artist_id from the API response
-            "artist_name": album_data.artist_name,  # Get artist_name from the API response
-            "tracks": [],
-        }
-
-        # Add cover art and release date if available
-        if hasattr(album_data, "cover_art"):
-            result["cover_art"] = album_data.cover_art
-
-        if hasattr(album_data, "release_date"):
-            result["release_date"] = album_data.release_date
-
-        # Process tracks
-        for track in album_data.tracks:
-            result["tracks"].append(
-                {
-                    "track_id": track.track_id,
-                    "name": track.name,
-                    "playcount": track.playcount,
-                }
+        streams_saved = 0
+        for stream in album_data:
+            s = StreamRecord(
+                album_id=stream.album_id,
+                track_id=stream.track_id,
+                play_count=stream.play_count,
             )
-
-        # Chain to upload task
-        upload_album_metrics.delay(result)
+            await db_service.insert_stream(s)
+            streams_saved += 1
 
         return {
             "album_id": album["album_id"],
             "status": "success",
-            "tracks_count": len(result["tracks"]),
+            "streams_saved": streams_saved,
         }
 
     except Exception as e:
         return {"album_id": album["album_id"], "status": "error", "error": str(e)}
-
-
-# Task 3: Upload album metrics to database (bottom boxes in diagram)
-@app.task
-def upload_album_metrics(album_data):
-    """Upload album metrics to database"""
-    return asyncio.run(_upload_album_metrics_async(album_data))
-
-
-async def _upload_album_metrics_async(album_data):
-    """Async implementation of metrics uploading"""
-    db_service = db_singleton.get_service()
-
-    try:
-        # Prepare album info
-        album_info = {
-            "album_id": album_data["album_id"],
-            "album_name": album_data["album_name"],
-            "artist_id": album_data["artist_id"],
-            "artist_name": album_data["artist_name"],
-            "cover_art": album_data.get("cover_art", ""),
-            "release_date": album_data.get("release_date", datetime.now()),
-        }
-
-        # Convert string date to datetime if needed
-        if isinstance(album_info["release_date"], str):
-            try:
-                album_info["release_date"] = datetime.strptime(
-                    album_info["release_date"], "%Y-%m-%d"
-                )
-            except Exception as e:
-                print(f"using default now time: {e}")
-                album_info["release_date"] = datetime.now()
-
-        # Prepare tracks and streams data
-        tracks = []
-        streams = []
-
-        for track in album_data["tracks"]:
-            # Track data
-            tracks.append(
-                {
-                    "track_id": track["track_id"],
-                    "name": track["name"],
-                    "artist_id": album_data["artist_id"],
-                    "album_id": album_data["album_id"],
-                }
-            )
-
-            # Stream data
-            streams.append(
-                {
-                    "track_id": track["track_id"],
-                    "play_count": track["playcount"],
-                    "album_id": album_data["album_id"],
-                }
-            )
-
-        # Save to database
-        await db_service.save_complete_album(album_info, tracks, streams)
-
-        return {
-            "album_id": album_data["album_id"],
-            "status": "uploaded",
-            "tracks_count": len(tracks),
-        }
-
-    except Exception as e:
-        return {"album_id": album_data["album_id"], "status": "error", "error": str(e)}

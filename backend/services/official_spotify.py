@@ -4,7 +4,7 @@ from typing import Dict, List
 
 import spotipy
 from config import settings
-from models import NewRelease
+from models import AlbumRecord
 from spotipy.oauth2 import SpotifyClientCredentials
 
 
@@ -24,7 +24,7 @@ class OfficialSpotifyService:
             )
         )
 
-    async def search_albums(self, query: str, limit: int = 50) -> List[NewRelease]:
+    async def search_albums(self, query: str, limit: int = 50) -> List[AlbumRecord]:
         """
         Search for albums on Spotify by name
 
@@ -52,18 +52,18 @@ class OfficialSpotifyService:
                 parsed_date = datetime.strptime(release_date, "%Y-%m-%d").date()
 
             albums.append(
-                NewRelease(
+                AlbumRecord(
                     album_id=item["id"],
                     album_name=item["name"],
-                    cover_art=item["images"][0]["url"] if item["images"] else "",
                     artist_name=item["artists"][0]["name"],
-                    artist_id=item["artists"][0]["id"],
-                    release_date=parsed_date,
+                    cover_art=item["images"][0]["url"] if item["images"] else "",
+                    release_date=parsed_date.strftime("%Y-%m-%d"),
                 )
             )
 
         return albums
 
+    # DEPRECATED FOR NOW
     async def get_user_top_tracks(self, access_token: str) -> List[Dict]:
         """
         Get a user's top tracks

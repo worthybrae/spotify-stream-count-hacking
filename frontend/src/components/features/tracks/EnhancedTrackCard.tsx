@@ -1,22 +1,24 @@
+// components/features/tracks/EnhancedTrackCard.tsx
 import React, { useState, useEffect } from 'react';
 import { Track } from '@/types/api';
 import { formatNumber, formatRevenue, calculateRevenue } from '@/lib/utils/formatters';
 import UpdatedMiniStreamChart from './UpdatedMiniStreamChart';
-import { TrendingUp, Play, DollarSign } from 'lucide-react';
+import { TrendingUp, Play, DollarSign, Star } from 'lucide-react';
 
-// Define interface for stream history item
-interface StreamHistoryItem {
-  date: string;
-  streams: number;
-}
-
-// Extended Track interface with streamHistory
-interface TrackWithHistory extends Track {
-  streamHistory?: StreamHistoryItem[];
+// Extended Track interface with position property
+interface ExtendedTrack extends Track {
+  position?: number;
+  day?: string;
+  stream_recorded_at?: string;
+  streamHistory?: Array<{
+    date: string;
+    streams: number;
+  }>;
+  clout_points?: number;
 }
 
 interface EnhancedTrackCardProps {
-  track: Track;
+  track: ExtendedTrack;
   onClick?: () => void;
 }
 
@@ -29,20 +31,16 @@ const EnhancedTrackCard: React.FC<EnhancedTrackCardProps> = ({ track, onClick })
   const [hasWeeklyData, setHasWeeklyData] = useState(false);
   const [formattedDate, setFormattedDate] = useState<string>('Unknown');
 
-  // Cast track to extended interface
-  const trackWithHistory = track as TrackWithHistory;
-
   // Filter and check for valid stream history data
   useEffect(() => {
-    // Find the latest date from stream history
-    if (trackWithHistory.streamHistory &&
-        Array.isArray(trackWithHistory.streamHistory) &&
-        trackWithHistory.streamHistory.length > 0) {
-
-      const history = trackWithHistory.streamHistory;
+    // Check if track has stream history
+    if (track.streamHistory && Array.isArray(track.streamHistory) && track.streamHistory.length > 0) {
+      const history = track.streamHistory;
 
       // Sort by date
-      const sortedHistory = [...history].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+      const sortedHistory = [...history].sort((a, b) =>
+        new Date(a.date).getTime() - new Date(b.date).getTime()
+      );
 
       // Get the latest date from the history
       const latestDate = sortedHistory[sortedHistory.length - 1].date;
@@ -66,14 +64,18 @@ const EnhancedTrackCard: React.FC<EnhancedTrackCardProps> = ({ track, onClick })
         setHasWeeklyData(true);
 
         // Calculate growth from first point to last point
-        const firstPoint = last7DaysData[0];
-        const lastPoint = last7DaysData[last7DaysData.length - 1];
+        if (last7DaysData.length >= 2) {
+          const firstPoint = last7DaysData[0];
+          const lastPoint = last7DaysData[last7DaysData.length - 1];
 
-        if (firstPoint.streams > 0) {
-          const growthPercent = ((lastPoint.streams - firstPoint.streams) / firstPoint.streams) * 100;
-          setGrowth(growthPercent);
+          if (firstPoint.streams > 0) {
+            const growthPercent = ((lastPoint.streams - firstPoint.streams) / firstPoint.streams) * 100;
+            setGrowth(growthPercent);
+          } else {
+            setGrowth(0);
+          }
         } else {
-          setGrowth(0);
+          setGrowth(null);
         }
       } else {
         setHasWeeklyData(false);
@@ -98,25 +100,42 @@ const EnhancedTrackCard: React.FC<EnhancedTrackCardProps> = ({ track, onClick })
       setHasWeeklyData(false);
       setGrowth(null);
     }
-  }, [trackWithHistory, track.day, track.stream_recorded_at]);
+  }, [track]);
 
   return (
     <div
-      className="rounded-lg bg-black/20 hover:bg-black/30 transition-all border border-white/5 p-4"
+      className={`rounded-lg ${track.position && track.position <= 3 ? 'bg-black/40' : 'bg-black/20'} hover:bg-black/30 transition-all border ${track.position && track.position <= 3 ? 'border-white/20' : 'border-white/5'} p-4 relative`}
       onClick={onClick}
     >
+      {/* Position badge - only show if position is available */}
+      {track.position && (
+        <div className={`absolute -top-3 -left-3 w-8 h-8 rounded-full ${track.position <= 3 ? 'bg-yellow-600' : 'bg-black/60'} border border-white/20 flex items-center justify-center z-10`}>
+          <span className="text-white text-xs font-semibold">#{track.position}</span>
+        </div>
+      )}
+
       {/* Desktop Layout */}
       <div className="hidden md:flex items-center">
-        {/* Track name - 20% */}
-        <div className="flex-none w-[20%] min-w-0 pr-2">
-          <h3 className="text-base font-medium text-white truncate">{track.name}</h3>
-          <div className="text-xs text-white/50 mt-1">
-            <span>Updated: {formattedDate}</span>
+        {/* Album cover and Track name - 30% */}
+        <div className="flex-none w-[30%] min-w-0 flex items-center">
+          {/* Album cover */}
+          <div className="flex-none mr-3">
+            <img
+              src={track.cover_art || 'https://placehold.co/60x60/3d3d3d/white?text=Album'}
+              alt={track.album_name || 'Album cover'}
+              className="w-12 h-12 object-cover rounded-md"
+            />
+          </div>
+
+          {/* Track info */}
+          <div className="min-w-0">
+            <h3 className="text-base font-medium text-white truncate">{track.name}</h3>
+            <p className="text-sm text-white/70 truncate">{track.artist_name}</p>
           </div>
         </div>
 
-        {/* Stream chart - 35% */}
-        <div className="flex-none w-[35%] h-16 px-2">
+        {/* Stream chart - 30% */}
+        <div className="flex-none w-[30%] h-16 px-2">
           {hasWeeklyData ? (
             <div className="h-full">
               <UpdatedMiniStreamChart track={track} height={48} />
@@ -128,10 +147,10 @@ const EnhancedTrackCard: React.FC<EnhancedTrackCardProps> = ({ track, onClick })
           )}
         </div>
 
-        {/* Metrics - 45% - increased from 40% */}
-        <div className="flex-none w-[45%] flex items-center">
+        {/* Metrics - 40% */}
+        <div className="flex-none w-[40%] flex items-center">
           <div className="w-full flex justify-between space-x-3 px-1">
-            {/* Streams - width: 33% */}
+            {/* Streams - width: 25% */}
             <div className="bg-emerald-950/60 rounded-lg shadow-inner py-2 px-3 flex-1 flex flex-col items-center">
               <div className="flex items-center gap-1 text-emerald-400 text-xs font-medium">
                 <Play className="h-3 w-3" />
@@ -142,8 +161,8 @@ const EnhancedTrackCard: React.FC<EnhancedTrackCardProps> = ({ track, onClick })
               </div>
             </div>
 
-            {/* 7d Growth - width: 33% - fixed to ensure text on one line */}
-            <div className="bg-indigo-950/60 rounded-lg shadow-inner py-2 px-4 flex-1 flex flex-col items-center min-w-[90px]">
+            {/* 7d Growth - width: 25% */}
+            <div className="bg-indigo-950/60 rounded-lg shadow-inner py-2 px-3 flex-1 flex flex-col items-center">
               <div className="flex items-center gap-1 text-indigo-400 text-xs font-medium whitespace-nowrap">
                 <TrendingUp className="h-3 w-3" />
                 <span>7d Growth</span>
@@ -157,7 +176,7 @@ const EnhancedTrackCard: React.FC<EnhancedTrackCardProps> = ({ track, onClick })
               </div>
             </div>
 
-            {/* Revenue - width: 33% */}
+            {/* Revenue - width: 25% */}
             <div className="bg-amber-950/60 rounded-lg shadow-inner py-2 px-3 flex-1 flex flex-col items-center">
               <div className="flex items-center gap-1 text-amber-400 text-xs font-medium">
                 <DollarSign className="h-3 w-3" />
@@ -165,6 +184,17 @@ const EnhancedTrackCard: React.FC<EnhancedTrackCardProps> = ({ track, onClick })
               </div>
               <div className="text-white font-medium">
                 ${formatRevenue(revenue)}
+              </div>
+            </div>
+
+            {/* Clout Points - width: 25% */}
+            <div className="bg-blue-950/60 rounded-lg shadow-inner py-2 px-3 flex-1 flex flex-col items-center">
+              <div className="flex items-center gap-1 text-blue-400 text-xs font-medium">
+                <Star className="h-3 w-3" />
+                <span>Clout</span>
+              </div>
+              <div className="text-white font-medium">
+                {track.clout_points ? track.clout_points.toFixed(1) : '0.0'}
               </div>
             </div>
           </div>
@@ -175,37 +205,44 @@ const EnhancedTrackCard: React.FC<EnhancedTrackCardProps> = ({ track, onClick })
       <div className="md:hidden flex flex-col">
         {/* Track info and chart in top row */}
         <div className="flex mb-3">
-          {/* Track name - 40% */}
-          <div className="w-[40%] min-w-0 pr-2">
-            <h3 className="text-base font-medium text-white truncate">{track.name}</h3>
-            <div className="text-xs text-white/50 mt-1">
-              <span>Updated: {formattedDate}</span>
-            </div>
+          {/* Album cover */}
+          <div className="flex-none mr-3">
+            <img
+              src={track.cover_art || 'https://placehold.co/60x60/3d3d3d/white?text=Album'}
+              alt={track.album_name || 'Album cover'}
+              className="w-12 h-12 object-cover rounded-md"
+            />
           </div>
 
-          {/* Stream chart - 60% */}
-          <div className="w-[60%] h-16">
-            {hasWeeklyData ? (
-              <div className="h-full">
-                <UpdatedMiniStreamChart track={track} height={48} />
-              </div>
-            ) : (
-              <div className="h-full flex items-center justify-center text-white/40 text-xs">
-                No recent data
-              </div>
-            )}
+          {/* Track info */}
+          <div className="flex-grow min-w-0">
+            <h3 className="text-base font-medium text-white mb-1 truncate">{track.name}</h3>
+            <p className="text-sm text-white/70 truncate">{track.artist_name}</p>
           </div>
         </div>
 
-        {/* Buttons in bottom row */}
-        <div className="grid grid-cols-3 gap-2 mt-2">
+        {/* Stream chart */}
+        <div className="mb-3">
+          {hasWeeklyData ? (
+            <div className="h-16">
+              <UpdatedMiniStreamChart track={track} height={48} />
+            </div>
+          ) : (
+            <div className="h-16 flex items-center justify-center text-white/40 text-xs">
+              No recent data
+            </div>
+          )}
+        </div>
+
+        {/* Metrics in grid layout */}
+        <div className="grid grid-cols-4 gap-2">
           {/* Streams */}
           <div className="bg-emerald-950/60 rounded-lg shadow-inner py-2 px-2 flex flex-col items-center">
             <div className="flex items-center gap-1 text-emerald-400 text-xs font-medium">
               <Play className="h-3 w-3" />
               <span>Streams</span>
             </div>
-            <div className="text-white font-medium">
+            <div className="text-white font-medium text-sm">
               {formatNumber(track.playcount || 0)}
             </div>
           </div>
@@ -214,9 +251,9 @@ const EnhancedTrackCard: React.FC<EnhancedTrackCardProps> = ({ track, onClick })
           <div className="bg-indigo-950/60 rounded-lg shadow-inner py-2 px-2 flex flex-col items-center">
             <div className="flex items-center gap-1 text-indigo-400 text-xs font-medium whitespace-nowrap">
               <TrendingUp className="h-3 w-3" />
-              <span>7d Growth</span>
+              <span>7d</span>
             </div>
-            <div className="text-white font-medium">
+            <div className="text-white font-medium text-sm">
               {hasWeeklyData && growth !== null ? (
                 <span>{growth.toFixed(1)}%</span>
               ) : (
@@ -229,10 +266,21 @@ const EnhancedTrackCard: React.FC<EnhancedTrackCardProps> = ({ track, onClick })
           <div className="bg-amber-950/60 rounded-lg shadow-inner py-2 px-2 flex flex-col items-center">
             <div className="flex items-center gap-1 text-amber-400 text-xs font-medium">
               <DollarSign className="h-3 w-3" />
-              <span>Revenue</span>
+              <span>Rev</span>
             </div>
-            <div className="text-white font-medium">
+            <div className="text-white font-medium text-sm">
               ${formatRevenue(revenue)}
+            </div>
+          </div>
+
+          {/* Clout Points */}
+          <div className="bg-blue-950/60 rounded-lg shadow-inner py-2 px-2 flex flex-col items-center">
+            <div className="flex items-center gap-1 text-blue-400 text-xs font-medium">
+              <Star className="h-3 w-3" />
+              <span>Clout</span>
+            </div>
+            <div className="text-white font-medium text-sm">
+              {track.clout_points ? track.clout_points.toFixed(1) : '0.0'}
             </div>
           </div>
         </div>

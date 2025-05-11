@@ -1,153 +1,130 @@
-// components/features/profile/ActivityTracker.tsx
+// components/features/profile/MinimalActivityTracker.tsx
 import React, { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
-import { Loader2 } from 'lucide-react';
-import axios from 'axios';
+import { Loader2, Calendar, Flame } from 'lucide-react';
+import { fetchUserProfile } from '@/lib/api/userProfileApi';
+import { extractActivityDates, calculateActivityStats } from '@/lib/utils/cloutScoreCalculator';
 
-interface ActivityTrackerProps {
+interface MinimalActivityTrackerProps {
   userId: string;
-  onCheckInComplete?: () => void;
 }
 
-const ActivityTracker: React.FC<ActivityTrackerProps> = ({ userId }) => {
-  const [checkInDates, setCheckInDates] = useState<string[]>([]);
+const MinimalActivityTracker: React.FC<MinimalActivityTrackerProps> = ({ userId }) => {
+  const [activityDates, setActivityDates] = useState<string[]>([]);
+  const [stats, setStats] = useState<{ streak: number; activeDays: number }>({ streak: 0, activeDays: 0 });
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const [stats, setStats] = useState({
-    streak: 0,
-    activeCount: 0
-  });
-  
-  // Format date to match API format (YYYY-MM-DD)
-  const formatDateForComparison = (date: Date): string => {
-    return date.toISOString().split('T')[0];
-  };
-  
-  // Check if a date is in the check-in dates
-  const isCheckedIn = (date: Date): boolean => {
-    const formattedDate = formatDateForComparison(date);
-    return checkInDates.includes(formattedDate);
-  };
 
-  // Calculate stats
-  const calculateStats = (dates: string[]) => {
-    // Calculate streak (consecutive days leading up to today)
-    let streak = 0;
-    const today = formatDateForComparison(new Date());
-    
-    // Get dates in descending order (newest first)
-    const sortedDates = [...dates].sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
-    
-    // Check if today is checked in
-    if (sortedDates.length > 0 && sortedDates[0] === today) {
-      streak = 1;
-      
-      // Check previous days
-      for (let i = 1; i < 30; i++) {
-        const previousDate = new Date();
-        previousDate.setDate(previousDate.getDate() - i);
-        const formattedPreviousDate = formatDateForComparison(previousDate);
-        
-        if (dates.includes(formattedPreviousDate)) {
-          streak++;
-        } else {
-          break;
-        }
+  // Load activity data
+  useEffect(() => {
+    const loadActivityData = async () => {
+      setLoading(true);
+      setError(null);
+
+      try {
+        // Fetch user profile data
+        const profileData = await fetchUserProfile(userId);
+
+        // Extract activity dates
+        const dates = extractActivityDates(profileData);
+        setActivityDates(dates);
+
+        // Calculate activity stats
+        const activityStats = calculateActivityStats(dates);
+        setStats(activityStats);
+      } catch (err) {
+        console.error('Error loading activity data:', err);
+        setError('Failed to load activity data');
+      } finally {
+        setLoading(false);
       }
-    }
-    
-    return {
-      streak,
-      activeCount: dates.length
     };
-  };
 
-  // Fetch check-in data
-  const fetchCheckInData = async () => {
-    setLoading(true);
-    setError(null);
-    
-    try {
-      const api = axios.create({
-        baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8000',
-        headers: {
-          'X-API-Key': import.meta.env.VITE_API_KEY || 'dev-key',
-        },
-      });
-      
-      const response = await api.get(`/tracks/${userId}/check-ins`);
-      setCheckInDates(response.data);
-      
-      // Calculate stats
-      setStats(calculateStats(response.data));
-    } catch (err) {
-      console.error('Error fetching check-in data:', err);
-      setError('Failed to load check-in history');
-    } finally {
-      setLoading(false);
-    }
-  };
-  
-  // Generate last few days (just enough for the UI)
-  const getVisibleDays = () => {
+    loadActivityData();
+  }, [userId]);
+
+  // Generate last 7 days for the display
+  const getLast7Days = (): Date[] => {
     const days: Date[] = [];
-    // Get just the last 7 days to show in UI (most recent day first/left)
-    for (let i = 0; i < 61; i++) {
-      const date = new Date();
-      date.setDate(date.getDate() - i); // Most recent day (today) is first
+    const today = new Date();
+
+    for (let i = 6; i >= 0; i--) {
+      const date = new Date(today);
+      date.setDate(today.getDate() - i);
       days.push(date);
     }
+
     return days;
   };
-  
-  // Load check-in data on component mount
-  useEffect(() => {
-    if (userId) {
-      fetchCheckInData();
-    }
-  }, [userId]);
-  
-  const visibleDays = getVisibleDays();
-  
+
+  // Check if a date exists in activity dates
+  const isActiveDay = (date: Date): boolean => {
+    const formattedDate = date.toISOString().split('T')[0];
+    return activityDates.includes(formattedDate);
+  };
+
+  // Format day name (e.g., "Mon")
+  const formatDayName = (date: Date): string => {
+    return date.toLocaleDateString('en-US', { weekday: 'short' });
+  };
+
+  // Format day of month (e.g., "15")
+  const formatDayNumber = (date: Date): string => {
+    return date.getDate().toString();
+  };
+
+  const last7Days = getLast7Days();
+
   return (
-    <Card className="bg-black/40 border-white/10">
-      <div className="p-4">
-        {/* Stats */}
-        <div className="flex justify-between items-center mb-4">
-          <div className="flex gap-4">
-            <p className="text-xs">
-              <span className="text-yellow-400">Streak: </span>
-              <span className="text-white">{stats.streak} days</span>
-            </p>
-            <p className="text-xs">
-              <span className="text-blue-400">Active: </span>
-              <span className="text-white">{stats.activeCount}/30 days</span>
-            </p>
-          </div>
+    <Card className="bg-black/40 border-white/10 p-4">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center">
+          <Calendar className="h-4 w-4 text-purple-400 mr-2" />
+          <h3 className="text-white text-sm font-medium">Activity</h3>
         </div>
-        
-        {error && (
-          <div className="text-red-400 text-xs mb-2">{error}</div>
-        )}
-        
-        {loading ? (
-          <div className="flex justify-center py-2">
-            <Loader2 className="h-4 w-4 text-white/40 animate-spin" />
-          </div>
-        ) : (
-          <div className="flex items-center h-6 gap-1.5">
-            {visibleDays.map((date, i) => (
-              <div 
-                key={i}
-                className={`w-3 h-3 rounded-sm ${isCheckedIn(date) ? 'bg-blue-500' : 'bg-gray-700 border border-gray-600'}`}
-                title={date.toLocaleDateString()}
-              />
-            ))}
+        {stats.streak > 0 && (
+          <div className="flex items-center bg-purple-900/30 px-2 py-1 rounded-md">
+            <Flame className="h-3 w-3 text-orange-400 mr-1" />
+            <span className="text-xs text-white">{stats.streak} day streak</span>
           </div>
         )}
       </div>
+
+      {loading ? (
+        <div className="flex items-center justify-center h-16">
+          <Loader2 className="h-5 w-5 animate-spin text-white/60" />
+        </div>
+      ) : error ? (
+        <div className="flex items-center justify-center h-16">
+          <p className="text-red-400 text-xs">{error}</p>
+        </div>
+      ) : (
+        <div className="flex justify-between mt-2">
+          {last7Days.map((day, index) => {
+            const active = isActiveDay(day);
+            const isToday = new Date().toDateString() === day.toDateString();
+
+            return (
+              <div key={`day-${index}`} className="flex flex-col items-center">
+                <div className="text-xs text-white/60 mb-1">{formatDayName(day)}</div>
+                <div
+                  className={`h-8 w-8 rounded-full flex items-center justify-center ${
+                    active
+                      ? 'bg-purple-500 text-white'
+                      : isToday
+                      ? 'bg-white/5 border border-white/40 text-white/70'
+                      : 'bg-white/5 text-white/40'
+                  }`}
+                >
+                  <span className="text-xs">{formatDayNumber(day)}</span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </Card>
   );
 };
 
-export default ActivityTracker;
+export default MinimalActivityTracker;

@@ -9,12 +9,13 @@ import json
 import logging
 import random
 import time
-from typing import Dict
+from datetime import datetime
+from typing import Dict, List
 from urllib.parse import quote
 
 import httpx
 from fastapi import HTTPException
-from models import AlbumResponse, Track
+from models import Stream
 
 # Import the separated TokenManager
 from services.token_manager import TokenManager
@@ -73,7 +74,7 @@ class UnofficialSpotifyService:
         params = "&".join(f"{k}={quote(v)}" for k, v in query_params.items())
         return f"{self.base_url}?{params}"
 
-    async def get_album_tracks(self, album_id: str) -> AlbumResponse:
+    async def get_album_tracks(self, album_id: str) -> List[Stream]:
         """
         Get track details for an album including play counts
         with retry mechanism
@@ -82,7 +83,7 @@ class UnofficialSpotifyService:
             album_id: Spotify album ID
 
         Returns:
-            AlbumResponse object with album and track details including play counts
+            List of Stream objects with album and track details including play counts
         """
         url = self._build_album_query(album_id)
         errors = []
@@ -103,8 +104,6 @@ class UnofficialSpotifyService:
                 # Check for essential properties
                 if "artists" not in album_data or "items" not in album_data["artists"]:
                     raise ValueError("Artist data missing in API response")
-
-                artist_data = album_data["artists"]["items"][0]
 
                 # Extract cover art URL - get the largest image available
                 cover_art_url = ""
@@ -139,7 +138,9 @@ class UnofficialSpotifyService:
                     raise ValueError("Track data missing in API response")
 
                 # Process tracks
-                tracks = []
+                from models import Stream  # Import here to avoid circular imports
+
+                output_data = []
                 for item in album_data["tracksV2"]["items"]:
                     try:
                         track_data = item["track"]
@@ -149,30 +150,26 @@ class UnofficialSpotifyService:
                             else ""
                         )
 
-                        track = Track(
+                        # Create a Stream object directly
+                        stream = Stream(
                             track_id=track_data["uri"].split(":")[-1],
-                            name=track_data["name"],
-                            playcount=int(track_data.get("playcount", 0)),
+                            album_id=album_data["uri"].split(":")[-1],
+                            album_name=album_data["name"],
+                            track_name=track_data["name"],
                             artist_name=artist_name,
+                            cover_art=cover_art_url,
+                            release_date=release_date or "",
+                            play_count=int(track_data.get("playcount", 0)),
+                            stream_recorded_at=datetime.now().strftime("%Y-%m-%d"),
                         )
-                        tracks.append(track)
+
+                        output_data.append(stream)
+
                     except Exception as track_error:
                         logger.error(f"Error processing track: {track_error}")
                         # Continue with other tracks
 
-                album_response = AlbumResponse(
-                    album_id=album_data["uri"].split(":")[-1],
-                    album_name=album_data["name"],
-                    artist_id=artist_data["id"],
-                    artist_name=artist_data["profile"]["name"],
-                    tracks=tracks,
-                )
-
-                # Add cover art and release date to the response object
-                album_response.cover_art = cover_art_url
-                album_response.release_date = release_date
-
-                return album_response
+                return output_data
 
             except Exception as e:
                 # Add the error to our list

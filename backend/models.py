@@ -1,59 +1,46 @@
 # backend/models.py
-from pydantic import BaseModel
-from typing import List, Optional
 from datetime import date
+from typing import Optional, Union
+
+from pydantic import BaseModel
 
 
-class Track(BaseModel):
+class Stream(BaseModel):
     track_id: str
-    name: str
-    playcount: int
-    artist_name: Optional[str] = None  # Made optional for flexibility
-
-class AlbumResponse(BaseModel):
     album_id: str
     album_name: str
-    artist_id: str
+    track_name: str
     artist_name: str
-    tracks: List[Track]
-    total_streams: Optional[int] = 0
-    cover_art: Optional[str] = ""
-    release_date: Optional[str] = None
-
-class NewRelease(BaseModel):
-    album_id: str
-    album_name: str
     cover_art: str
+    release_date: Union[str, date]
+    play_count: int
+    stream_recorded_at: Union[str, date]
+
+
+class AlbumRecord(BaseModel):
+    album_id: str
+    album_name: str
     artist_name: str
-    artist_id: str
-    release_date: date
-
-class AuthorizationRequest(BaseModel):
-    """Request model for getting authorization URL"""
-    state: Optional[str] = None
+    cover_art: str
+    release_date: Union[str, date]
 
 
-class TokenRequest(BaseModel):
-    """Request model for token exchange"""
-    code: str
+class TrackRecord(BaseModel):
+    track_id: str
+    track_name: str
+    album_id: str
 
 
-class RefreshTokenRequest(BaseModel):
-    """Request model for refreshing access token"""
-    refresh_token: str
+class StreamRecord(BaseModel):
+    album_id: str
+    track_id: str
+    play_count: int
 
 
-class TokenResponse(BaseModel):
-    """Response model for token operations"""
-    access_token: str
-    refresh_token: Optional[str] = None
-    expires_in: int
-    expires_at: Optional[int] = None
-    token_type: str = "Bearer"
-
-
+# DEPRECATED FOR NOW
 class UserProfile(BaseModel):
     """User profile information from Spotify"""
+
     id: str
     display_name: Optional[str] = None
     email: Optional[str] = None
