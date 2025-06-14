@@ -308,7 +308,7 @@ class DatabaseService:
                     cover_art=streams[0].cover_art,
                     release_date=streams[0].release_date,
                 )
-                await self.insert_album(conn, album)
+                await self.insert_album(album)
 
                 # Insert tracks using template
                 for stream in streams:
@@ -317,13 +317,13 @@ class DatabaseService:
                         track_name=stream.track_name,
                         album_id=stream.album_id,
                     )
-                    await self.insert_track(conn, track)
+                    await self.insert_track(track)
                     s = StreamRecord(
                         album_id=stream.album_id,
                         track_id=stream.track_id,
                         play_count=stream.play_count,
                     )
-                    await self.insert_stream(conn, s)
+                    await self.insert_stream(s)
 
                 return {
                     "album_id": streams[0].album_id,
