@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { SearchInput } from './SearchInput';
-import { FeaturesGrid } from './FeaturesGrid';
 import { SearchResults } from './SearchResults';
 import { SearchStyles } from './SearchStyles';
 import { SearchResult } from '@/types/search';
@@ -9,12 +8,14 @@ import { searchAlbums } from '@/lib/api';
 
 interface SearchSectionProps {
   onAlbumSelect: (result: SearchResult) => void;
-  selectedAlbum: SearchResult | null;
+  onSearchValueChange?: (value: string) => void;
+  renderTrendingTracks?: React.ReactNode;
 }
 
-const SearchSection: React.FC<SearchSectionProps> = ({ 
-  onAlbumSelect, 
-  selectedAlbum
+const SearchSection: React.FC<SearchSectionProps> = ({
+  onAlbumSelect,
+  onSearchValueChange,
+  renderTrendingTracks
 }) => {
   const {
     searchValue,
@@ -24,13 +25,13 @@ const SearchSection: React.FC<SearchSectionProps> = ({
     handleSearchChange,
     clearSearch
   } = useSearch(3); // minimum 3 characters to trigger search
-  
+
   // State for direct Spotify search
   const [spotifySearching, setSpotifySearching] = useState(false);
   const [spotifyResults, setSpotifyResults] = useState<SearchResult[]>([]);
   const [isSpotifySearch, setIsSpotifySearch] = useState(false);
   const [spotifyQuery, setSpotifyQuery] = useState('');
-  
+
   // Reset Spotify search state when the search value changes
   useEffect(() => {
     // If the user modifies the search query, reset Spotify search state
@@ -39,12 +40,19 @@ const SearchSection: React.FC<SearchSectionProps> = ({
       setSpotifyResults([]);
     }
   }, [searchValue, isSpotifySearch, spotifyQuery]);
-  
+
+  // Notify parent of search value changes
+  useEffect(() => {
+    if (onSearchValueChange) {
+      onSearchValueChange(searchValue);
+    }
+  }, [searchValue, onSearchValueChange]);
+
   // Handle result selection
   const handleResultSelect = (result: SearchResult) => {
     // Pass the selected album up to the parent component
     onAlbumSelect(result);
-    
+
     // Clear search state
     clearSearch();
     setSpotifyResults([]);
@@ -59,7 +67,7 @@ const SearchSection: React.FC<SearchSectionProps> = ({
       setIsSpotifySearch(false);
       setSpotifyResults([]);
     }
-    
+
     // Pass the event to the original handler
     handleSearchChange(e);
   };
@@ -67,15 +75,15 @@ const SearchSection: React.FC<SearchSectionProps> = ({
   // Function to search Spotify directly
   const handleSearchSpotify = async (query: string) => {
     if (!query.trim() || spotifySearching) return;
-    
+
     setSpotifySearching(true);
     setIsSpotifySearch(true);
     setSpotifyQuery(query); // Store the query used for Spotify search
-    
+
     try {
       // Using the force_spotify parameter to bypass cache and search Spotify directly
       const results = await searchAlbums(query, 20, true);
-      
+
       if (results && results.length > 0) {
         // Store the Spotify results in state to display them
         setSpotifyResults(results);
@@ -90,31 +98,28 @@ const SearchSection: React.FC<SearchSectionProps> = ({
     }
   };
 
-  const showFeaturesGrid = !searchValue.trim() && !selectedAlbum;
-  const showSearchResults = Boolean(searchValue.trim());
-  
+  const showTrending = searchValue.trim().length < 3;
+  const showSearchResults = searchValue.trim().length >= 3;
+
   // Determine which results to show
   const displayResults = isSpotifySearch ? spotifyResults : results;
-  const currentSearchStatus = isSpotifySearch ? 
-    (spotifySearching ? 'searching' : (spotifyResults.length === 0 ? 'no-results' : 'idle')) 
+  const currentSearchStatus = isSpotifySearch ?
+    (spotifySearching ? 'searching' : (spotifyResults.length === 0 ? 'no-results' : 'idle'))
     : searchStatus;
 
   return (
     <div className="w-full space-y-4">
       {/* Search input */}
       <div className="w-full">
-        <SearchInput 
+        <SearchInput
           searchValue={searchValue}
           loading={loading || spotifySearching}
           onChange={handleInputChange} // Use our custom handler
         />
       </div>
-      
+
       {/* Feature grid or search results */}
-      {showFeaturesGrid && (
-        <FeaturesGrid isVisible={true} />
-      )}
-      
+      {showTrending && renderTrendingTracks}
       {showSearchResults && (
         <SearchResults
           isVisible={true}
@@ -123,9 +128,10 @@ const SearchSection: React.FC<SearchSectionProps> = ({
           onResultClick={handleResultSelect}
           onSearchSpotify={!isSpotifySearch ? handleSearchSpotify : undefined}
           searchValue={searchValue}
+          renderTrendingTracks={renderTrendingTracks}
         />
       )}
-      
+
       <SearchStyles />
     </div>
   );

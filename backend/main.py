@@ -11,7 +11,6 @@ from fastapi.templating import Jinja2Templates
 from routes.albums import router as albums_router
 from routes.monitor import router as monitor_router
 from routes.search import router as search_router
-from routes.users import router as tracks_router
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
@@ -24,9 +23,25 @@ os.makedirs(str(templates_directory), exist_ok=True)
 
 # Create the FastAPI app with the lifespan
 app = FastAPI(
-    title="streamclout.io api",
-    description="api to get historical Spotify streaming data for any album and track",
+    title="StreamClout API",
+    description="""
+    API to get historical Spotify streaming data for any album and track.
+
+    ## Example Usage
+    ```bash
+    curl http://localhost:8000/albums/6rqhFgbbKwnb9MLmUQDhG6
+    ```
+
+    ## Data Sources
+    The API uses multiple data sources to provide comprehensive streaming data:
+    1. Local Database (Primary source for historical data)
+    2. Unofficial Spotify API (Secondary source for real-time data)
+    3. Official Spotify API (Fallback source with limited data)
+    """,
     version="1.0.0",
+    docs_url="/docs",
+    redoc_url="/redoc",
+    openapi_url="/openapi.json",
 )
 
 # CORS middleware
@@ -63,12 +78,13 @@ app.add_middleware(ProxyHeadersMiddleware)
 # Include routers
 app.include_router(albums_router, prefix="/albums", tags=["Albums"])
 app.include_router(search_router, prefix="/search", tags=["Search"])
-app.include_router(tracks_router, prefix="/users", tags=["Users"])
-app.include_router(monitor_router, prefix="/monitor", tags=["Monitoring"])
+app.include_router(
+    monitor_router, prefix="/monitor", tags=["Monitoring"], include_in_schema=False
+)
 
 
 # Update the health check endpoint to include service status and show dashboard
-@app.get("/", response_class=HTMLResponse, tags=["Health"])
+@app.get("/", response_class=HTMLResponse, tags=["Health"], include_in_schema=False)
 async def health_check(request: Request):
     from services.monitor import monitor
 

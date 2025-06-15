@@ -1,40 +1,64 @@
 # backend/models.py
-from datetime import date
-from typing import Optional, Union
+from datetime import date, datetime
+from typing import Optional
 
 from pydantic import BaseModel
 
 
-class Stream(BaseModel):
+class DatabaseStream(BaseModel):
+    """Model for stream data as stored in the database"""
+
     track_id: str
     album_id: str
-    album_name: str
-    track_name: str
-    artist_name: str
-    cover_art: str
-    release_date: Union[str, date]
     play_count: int
-    stream_recorded_at: Union[str, date]
+    timestamp: datetime
 
 
-class AlbumRecord(BaseModel):
-    album_id: str
-    album_name: str
-    artist_name: str
-    cover_art: str
-    release_date: Union[str, date]
+class DatabaseTrack(BaseModel):
+    """Model for track data as stored in the database"""
 
-
-class TrackRecord(BaseModel):
     track_id: str
     track_name: str
     album_id: str
 
 
-class StreamRecord(BaseModel):
+class DatabaseAlbum(BaseModel):
+    """Model for album data as stored in the database"""
+
     album_id: str
+    name: str
+    artist_name: str
+    cover_art: str
+    release_date: date
+
+
+class StreamResponse(BaseModel):
+    """Model for stream data in API responses"""
+
     track_id: str
-    play_count: int
+    track_name: str
+    album_id: str
+    album_name: str
+    artist_name: str
+    stream_count: int
+    timestamp: str
+    cover_art: str
+
+    @classmethod
+    def from_database(
+        cls, stream: DatabaseStream, track: DatabaseTrack, album: DatabaseAlbum
+    ) -> "StreamResponse":
+        """Create a StreamResponse from database models"""
+        return cls(
+            track_id=stream.track_id,
+            track_name=track.track_name,
+            album_id=album.album_id,
+            album_name=album.name,
+            artist_name=album.artist_name,
+            stream_count=stream.play_count,
+            timestamp=stream.timestamp.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            cover_art=album.cover_art,
+        )
 
 
 # DEPRECATED FOR NOW

@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Track } from '@/types/api';
 import { formatNumber, formatRevenue, calculateRevenue } from '@/lib/utils/formatters';
 import UpdatedMiniStreamChart from './UpdatedMiniStreamChart';
-import { TrendingUp, Play, DollarSign, Star } from 'lucide-react';
+import { TrendingUp, Play, DollarSign } from 'lucide-react';
 
 // Extended Track interface with position property
 interface ExtendedTrack extends Track {
@@ -15,6 +15,7 @@ interface ExtendedTrack extends Track {
     streams: number;
   }>;
   clout_points?: number;
+  cover_art?: string;
 }
 
 interface EnhancedTrackCardProps {
@@ -29,7 +30,6 @@ const EnhancedTrackCard: React.FC<EnhancedTrackCardProps> = ({ track, onClick })
   // Calculate growth percentage
   const [growth, setGrowth] = useState<number | null>(null);
   const [hasWeeklyData, setHasWeeklyData] = useState(false);
-  const [formattedDate, setFormattedDate] = useState<string>('Unknown');
 
   // Filter and check for valid stream history data
   useEffect(() => {
@@ -41,13 +41,6 @@ const EnhancedTrackCard: React.FC<EnhancedTrackCardProps> = ({ track, onClick })
       const sortedHistory = [...history].sort((a, b) =>
         new Date(a.date).getTime() - new Date(b.date).getTime()
       );
-
-      // Get the latest date from the history
-      const latestDate = sortedHistory[sortedHistory.length - 1].date;
-      setFormattedDate(new Date(latestDate).toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric'
-      }));
 
       // Filter to last 7 days
       const today = new Date();
@@ -84,17 +77,15 @@ const EnhancedTrackCard: React.FC<EnhancedTrackCardProps> = ({ track, onClick })
     } else {
       // Fallback to track.day if streamHistory isn't available
       if (track.day) {
-        setFormattedDate(new Date(track.day).toLocaleDateString('en-US', {
-          month: 'short',
-          day: 'numeric'
-        }));
+        // setFormattedDate(new Date(track.day).toLocaleDateString('en-US', {
+        //   month: 'short',
+        //   day: 'numeric'
+        // }));
       } else if (track.stream_recorded_at) {
-        setFormattedDate(new Date(track.stream_recorded_at).toLocaleDateString('en-US', {
-          month: 'short',
-          day: 'numeric'
-        }));
-      } else {
-        setFormattedDate('Unknown');
+        // setFormattedDate(new Date(track.stream_recorded_at).toLocaleDateString('en-US', {
+        //   month: 'short',
+        //   day: 'numeric'
+        // }));
       }
 
       setHasWeeklyData(false);
@@ -186,17 +177,6 @@ const EnhancedTrackCard: React.FC<EnhancedTrackCardProps> = ({ track, onClick })
                 ${formatRevenue(revenue)}
               </div>
             </div>
-
-            {/* Clout Points - width: 25% */}
-            <div className="bg-blue-950/60 rounded-lg shadow-inner py-2 px-3 flex-1 flex flex-col items-center">
-              <div className="flex items-center gap-1 text-blue-400 text-xs font-medium">
-                <Star className="h-3 w-3" />
-                <span>Clout</span>
-              </div>
-              <div className="text-white font-medium">
-                {track.clout_points ? track.clout_points.toFixed(1) : '0.0'}
-              </div>
-            </div>
           </div>
         </div>
       </div>
@@ -235,7 +215,7 @@ const EnhancedTrackCard: React.FC<EnhancedTrackCardProps> = ({ track, onClick })
         </div>
 
         {/* Metrics in grid layout */}
-        <div className="grid grid-cols-4 gap-2">
+        <div className="grid grid-cols-3 gap-2">
           {/* Streams */}
           <div className="bg-emerald-950/60 rounded-lg shadow-inner py-2 px-2 flex flex-col items-center">
             <div className="flex items-center gap-1 text-emerald-400 text-xs font-medium">
@@ -270,17 +250,6 @@ const EnhancedTrackCard: React.FC<EnhancedTrackCardProps> = ({ track, onClick })
             </div>
             <div className="text-white font-medium text-sm">
               ${formatRevenue(revenue)}
-            </div>
-          </div>
-
-          {/* Clout Points */}
-          <div className="bg-blue-950/60 rounded-lg shadow-inner py-2 px-2 flex flex-col items-center">
-            <div className="flex items-center gap-1 text-blue-400 text-xs font-medium">
-              <Star className="h-3 w-3" />
-              <span>Clout</span>
-            </div>
-            <div className="text-white font-medium text-sm">
-              {track.clout_points ? track.clout_points.toFixed(1) : '0.0'}
             </div>
           </div>
         </div>

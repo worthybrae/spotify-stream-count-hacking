@@ -12,29 +12,31 @@ interface SearchResultsProps {
   onSearchSpotify?: (query: string) => void; // Only present for regular search, not Spotify search
   searchValue?: string;
   savingData?: boolean;
+  renderTrendingTracks?: React.ReactNode;
 }
 
-export const SearchResults: React.FC<SearchResultsProps> = ({ 
-    isVisible, 
-    results, 
-    searchStatus, 
+export const SearchResults: React.FC<SearchResultsProps> = ({
+    isVisible,
+    results,
+    searchStatus,
     onResultClick,
     onSearchSpotify,
     searchValue = "",
-    savingData = false
+    savingData = false,
+    renderTrendingTracks
   }) => {
     if (!isVisible) return null;
-    
+
     // Function to handle direct Spotify search
     const handleSearchSpotify = () => {
       if (onSearchSpotify && searchValue.trim()) {
         onSearchSpotify(searchValue.trim());
       }
     };
-    
+
     // Determine if this is a regular search (has onSearchSpotify) or already a Spotify search (no onSearchSpotify)
     const isRegularSearch = Boolean(onSearchSpotify);
-    
+
     return (
       <div className="w-full space-y-2 max-h-[calc(100vh-16rem)] overflow-auto">
         {/* Add saving data indicator */}
@@ -46,11 +48,11 @@ export const SearchResults: React.FC<SearchResultsProps> = ({
             </div>
           </Card>
         )}
-        
+
         {results.length === 0 ? (
           <div className="text-center py-8 text-white/60">
             {searchStatus === 'too-short' && (
-              "Type at least 3 characters to search"
+              renderTrendingTracks || null
             )}
             {searchStatus === 'searching' && (
               <div className="flex items-center justify-center gap-3">
@@ -71,7 +73,7 @@ export const SearchResults: React.FC<SearchResultsProps> = ({
             {results.map((result) => (
               <Card
                 key={result.album_id}
-                className="bg-white/5 hover:bg-white/10 border-white/5 cursor-pointer 
+                className="bg-white/5 hover:bg-white/10 border-white/5 cursor-pointer
                          transition-all duration-300 transform hover:scale-102"
                 onClick={() => onResultClick(result)}
               >
@@ -95,11 +97,11 @@ export const SearchResults: React.FC<SearchResultsProps> = ({
                 </div>
               </Card>
             ))}
-            
+
             {/* "Don't see the album?" card - only show for regular search, not Spotify search */}
             {searchValue && onSearchSpotify && isRegularSearch && (
               <Card
-                className="bg-gradient-to-r from-purple-500/20 to-blue-500/20 hover:from-purple-500/30 hover:to-blue-500/30 
+                className="bg-gradient-to-r from-purple-500/20 to-blue-500/20 hover:from-purple-500/30 hover:to-blue-500/30
                          border-purple-500/30 cursor-pointer transition-all duration-300 transform hover:scale-102"
                 onClick={handleSearchSpotify}
               >

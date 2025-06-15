@@ -2,11 +2,8 @@
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import HomePage from './pages/HomePage';
 import { AboutPage } from './pages/AboutPage';
-import DashboardPage from './pages/DashboardPage';
-import AuthCallback from './pages/AuthCallback';
 import MainLayout from './components/layout/MainLayout';
 import RouteTracker from './components/utils/RouteTracker';
-import { AuthProvider } from './contexts/AuthContext';
 
 // Route tracker component for use inside MainLayout
 const LayoutWithAnalytics = () => {
@@ -31,24 +28,12 @@ const router = createBrowserRouter([
       {
         path: '/about',
         element: <AboutPage />
-      },
-      {
-        path: '/dashboard',
-        element: <DashboardPage />
       }
     ]
-  },
-  {
-    path: '/auth/callback',
-    element: <AuthCallback />
   }
 ]);
 
-// Router component to use in App.tsx with AuthProvider wrapper
+// Router component to use in App.tsx
 export function AppRouter() {
-  return (
-    <AuthProvider>
-      <RouterProvider router={router} />
-    </AuthProvider>
-  );
+  return <RouterProvider router={router} />;
 }

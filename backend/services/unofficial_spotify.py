@@ -15,7 +15,7 @@ from urllib.parse import quote
 
 import httpx
 from fastapi import HTTPException
-from models import Stream
+from models import StreamResponse
 
 # Import the separated TokenManager
 from services.token_manager import TokenManager
@@ -58,6 +58,51 @@ class UnofficialSpotifyService:
             "limit": 50,
         }
 
+        # Define the GraphQL query with all required fields
+        query = """
+        query getAlbum($uri: String!, $locale: String!, $offset: Int!, $limit: Int!) {
+            albumUnion(uri: $uri) {
+                ... on Album {
+                    name
+                    uri
+                    artists {
+                        items {
+                            profile {
+                                name
+                            }
+                        }
+                    }
+                    coverArt {
+                        sources {
+                            url
+                            width
+                            height
+                        }
+                    }
+                    date {
+                        isoString
+                    }
+                    tracksV2(offset: $offset, limit: $limit) {
+                        items {
+                            track {
+                                name
+                                uri
+                                playcount
+                                artists {
+                                    items {
+                                        profile {
+                                            name
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        """
+
         extensions = {
             "persistedQuery": {
                 "version": 1,
@@ -67,6 +112,7 @@ class UnofficialSpotifyService:
 
         query_params = {
             "operationName": "getAlbum",
+            "query": query,
             "variables": json.dumps(variables),
             "extensions": json.dumps(extensions),
         }
@@ -74,7 +120,7 @@ class UnofficialSpotifyService:
         params = "&".join(f"{k}={quote(v)}" for k, v in query_params.items())
         return f"{self.base_url}?{params}"
 
-    async def get_album_tracks(self, album_id: str) -> List[Stream]:
+    async def get_album_tracks(self, album_id: str) -> List[StreamResponse]:
         """
         Get track details for an album including play counts
         with retry mechanism
@@ -83,7 +129,7 @@ class UnofficialSpotifyService:
             album_id: Spotify album ID
 
         Returns:
-            List of Stream objects with album and track details including play counts
+            List of StreamResponse objects with album and track details including play counts
         """
         url = self._build_album_query(album_id)
         errors = []
@@ -95,6 +141,21 @@ class UnofficialSpotifyService:
                 response.raise_for_status()
                 data = response.json()
 
+                # Debug log the response structure
+                logger.info("API Response structure:")
+                logger.info(f"Data keys: {list(data.keys())}")
+                if "data" in data:
+                    logger.info(f"Data['data'] keys: {list(data['data'].keys())}")
+                    if "albumUnion" in data["data"]:
+                        album_data = data["data"]["albumUnion"]
+                        logger.info(f"Album data keys: {list(album_data.keys())}")
+                        if "artists" in album_data:
+                            logger.info(f"Artists structure: {album_data['artists']}")
+                        if "tracksV2" in album_data:
+                            logger.info(
+                                f"First track structure: {album_data['tracksV2']['items'][0] if album_data['tracksV2']['items'] else 'No tracks'}"
+                            )
+
                 # Check for expected data structure
                 if "data" not in data or "albumUnion" not in data["data"]:
                     raise ValueError("Unexpected API response format")
@@ -102,8 +163,42 @@ class UnofficialSpotifyService:
                 album_data = data["data"]["albumUnion"]
 
                 # Check for essential properties
-                if "artists" not in album_data or "items" not in album_data["artists"]:
+                if "artists" not in album_data:
                     raise ValueError("Artist data missing in API response")
+
+                # Extract artist name - try multiple possible locations
+                artist_name = ""
+                try:
+                    # Try to get from album artists first
+                    if "artists" in album_data and "items" in album_data["artists"]:
+                        artist_name = album_data["artists"]["items"][0]["profile"][
+                            "name"
+                        ]
+                        logger.info(
+                            f"Found artist name from album artists: {artist_name}"
+                        )
+                    # If not found, try the first track's artist
+                    elif "tracksV2" in album_data and "items" in album_data["tracksV2"]:
+                        first_track = album_data["tracksV2"]["items"][0]["track"]
+                        if (
+                            "artists" in first_track
+                            and "items" in first_track["artists"]
+                        ):
+                            artist_name = first_track["artists"]["items"][0]["profile"][
+                                "name"
+                            ]
+                            logger.info(
+                                f"Found artist name from first track: {artist_name}"
+                            )
+                    # If still not found, try the album's name as a fallback
+                    if not artist_name and "name" in album_data:
+                        artist_name = album_data["name"].split(" - ")[
+                            0
+                        ]  # Common format: "Artist - Album"
+                        logger.info(f"Using album name as artist name: {artist_name}")
+                except Exception as e:
+                    logger.error(f"Error extracting artist name: {e}")
+                    # Don't raise here, we'll try to continue with empty artist name
 
                 # Extract cover art URL - get the largest image available
                 cover_art_url = ""
@@ -138,29 +233,28 @@ class UnofficialSpotifyService:
                     raise ValueError("Track data missing in API response")
 
                 # Process tracks
-                from models import Stream  # Import here to avoid circular imports
-
                 output_data = []
                 for item in album_data["tracksV2"]["items"]:
                     try:
                         track_data = item["track"]
-                        artist_name = (
-                            track_data["artists"]["items"][0]["profile"]["name"]
-                            if "artists" in track_data
-                            else ""
-                        )
 
-                        # Create a Stream object directly
-                        stream = Stream(
+                        # Try to get track-specific artist if available
+                        track_artist_name = artist_name  # Default to album artist
+                        if "artists" in track_data and "items" in track_data["artists"]:
+                            track_artist_name = track_data["artists"]["items"][0][
+                                "profile"
+                            ]["name"]
+
+                        # Create a StreamResponse object directly
+                        stream = StreamResponse(
                             track_id=track_data["uri"].split(":")[-1],
                             album_id=album_data["uri"].split(":")[-1],
                             album_name=album_data["name"],
                             track_name=track_data["name"],
-                            artist_name=artist_name,
+                            artist_name=track_artist_name,
+                            stream_count=int(track_data.get("playcount", 0) or 0),
+                            timestamp=datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ"),
                             cover_art=cover_art_url,
-                            release_date=release_date or "",
-                            play_count=int(track_data.get("playcount", 0)),
-                            stream_recorded_at=datetime.now().strftime("%Y-%m-%d"),
                         )
 
                         output_data.append(stream)

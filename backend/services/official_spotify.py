@@ -1,11 +1,16 @@
 # services/official_spotify.py
+import logging
 from datetime import datetime
 from typing import Dict, List
 
 import spotipy
 from config import settings
-from models import AlbumRecord
+from models import DatabaseAlbum
 from spotipy.oauth2 import SpotifyClientCredentials
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("spotify_api")
 
 
 class OfficialSpotifyService:
@@ -24,7 +29,7 @@ class OfficialSpotifyService:
             )
         )
 
-    async def search_albums(self, query: str, limit: int = 50) -> List[AlbumRecord]:
+    async def search_albums(self, query: str, limit: int = 50) -> List[DatabaseAlbum]:
         """
         Search for albums on Spotify by name
 
@@ -52,12 +57,12 @@ class OfficialSpotifyService:
                 parsed_date = datetime.strptime(release_date, "%Y-%m-%d").date()
 
             albums.append(
-                AlbumRecord(
+                DatabaseAlbum(
                     album_id=item["id"],
-                    album_name=item["name"],
+                    name=item["name"],
                     artist_name=item["artists"][0]["name"],
                     cover_art=item["images"][0]["url"] if item["images"] else "",
-                    release_date=parsed_date.strftime("%Y-%m-%d"),
+                    release_date=parsed_date,
                 )
             )
 
@@ -78,3 +83,10 @@ class OfficialSpotifyService:
         results = user_client.current_user_top_tracks(time_range="short_term", limit=50)
 
         return results.get("items", [])
+
+    async def get_album(self, album_id: str) -> dict:
+        """
+        Get album details from Spotify by album ID.
+        """
+        album = self.client.album(album_id)
+        return album

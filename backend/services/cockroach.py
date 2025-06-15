@@ -5,7 +5,7 @@ from typing import Dict, List
 
 import asyncpg
 from config import settings
-from models import AlbumRecord, Stream, StreamRecord, TrackRecord
+from models import DatabaseAlbum, DatabaseStream, DatabaseTrack, StreamResponse
 
 
 @asynccontextmanager
@@ -24,7 +24,7 @@ class DatabaseService:
     """
 
     # 1. Insert Album query
-    async def insert_album(self, album: AlbumRecord):
+    async def insert_album(self, album: DatabaseAlbum):
         """Insert album using the provided template"""
         async with get_db() as conn:
             async with conn.transaction():
@@ -36,7 +36,6 @@ class DatabaseService:
                         artist_name,
                         cover_art,
                         release_date
-
                     )
                     VALUES (
                         $1,
@@ -53,17 +52,16 @@ class DatabaseService:
                         artist_name = $3,
                         cover_art = $4,
                         release_date = $5
-
                 """,
                     album.album_id,
-                    album.album_name,
+                    album.name,
                     album.artist_name,
                     album.cover_art,
-                    datetime.strptime(album.release_date, "%Y-%m-%d"),
+                    album.release_date,
                 )
 
     # 2. Insert Track query
-    async def insert_track(self, track: TrackRecord):
+    async def insert_track(self, track: DatabaseTrack):
         """Insert track using the provided template"""
         async with get_db() as conn:
             async with conn.transaction():
@@ -93,7 +91,7 @@ class DatabaseService:
                 )
 
     # 3. Insert Stream query
-    async def insert_stream(self, stream: StreamRecord):
+    async def insert_stream(self, stream: DatabaseStream):
         """Insert stream using the provided template"""
         async with get_db() as conn:
             async with conn.transaction():
@@ -102,12 +100,14 @@ class DatabaseService:
                     INSERT INTO streams (
                         track_id,
                         play_count,
-                        album_id
+                        album_id,
+                        timestamp
                     )
                     VALUES (
                         $1,
                         $2,
-                        $3
+                        $3,
+                        $4
                     )
                     ON CONFLICT (
                         track_id,
@@ -119,31 +119,8 @@ class DatabaseService:
                     stream.track_id,
                     stream.play_count,
                     stream.album_id,
+                    stream.timestamp,
                 )
-
-    # DEPRECATED FOR NOW
-    # 4. Insert User Top Track query
-    async def insert_user_top_track(
-        self, conn, user_id: str, track_id: str, position: int
-    ):
-        """Insert user top track using the provided template"""
-        await conn.execute(
-            """
-            INSERT INTO user_top_tracks (
-                user_id,
-                track_id,
-                position
-            )
-            VALUES (
-                $1,
-                $2,
-                $3
-            )
-        """,
-            user_id,
-            track_id,
-            position,
-        )
 
     # 5. Check Album Existence query
     async def check_album_exists(self, album_id: str) -> bool:
@@ -161,14 +138,14 @@ class DatabaseService:
             return result is not None
 
     # 6. Search Albums query
-    async def search_albums(self, query: str, limit: int = 10) -> List[AlbumRecord]:
+    async def search_albums(self, query: str, limit: int = 10) -> List[DatabaseAlbum]:
         """Search albums using the provided template"""
         async with get_db() as conn:
             results = await conn.fetch(
                 """
                 SELECT album_id,
                        artist_name,
-                       name AS album_name,
+                       name,
                        cover_art,
                        release_date::date
                 FROM   albums
@@ -179,186 +156,111 @@ class DatabaseService:
                 limit,
             )
 
-            return [AlbumRecord(**dict(r)) for r in results]
+            return [DatabaseAlbum(**dict(r)) for r in results]
 
     # 7. Fetch Album Data query
-    async def fetch_album_data(self, album_id: str) -> List[Stream]:
+    async def fetch_album_data(self, album_id: str) -> List[StreamResponse]:
         """Fetch album data using the provided template"""
         async with get_db() as conn:
-            results = await conn.fetch(
+            # First get the album data
+            album_result = await conn.fetchrow(
                 """
-                SELECT s.timestamp :: DATE as stream_recorded_at,
-                       t.name            AS track_name,
-                       t.track_id,
-                       a.name            AS album_name,
-                       a.album_id,
-                       a.cover_art,
-                       a.release_date::date,
-                       a.artist_name,
-                       max(s.play_count) AS play_count
-                FROM   streams s
-                       left join tracks t
-                              ON t.track_id = s.track_id
-                       left join albums a
-                              ON a.album_id = t.album_id
-                WHERE  s.album_id = $1
-                       AND t.album_id = $1
-                       AND a.album_id = $1
-                GROUP  BY 1,
-                          2,
-                          3,
-                          4,
-                          5,
-                          6,
-                          7,
-                          8
-                ORDER  BY 3,
-                          2,
-                          1
-            """,
+                SELECT album_id,
+                       name,
+                       artist_name,
+                       cover_art,
+                       release_date::date
+                FROM albums
+                WHERE album_id = $1
+                """,
                 album_id,
             )
 
-            return [Stream(**dict(r)) for r in results]
+            if not album_result:
+                return []
 
-    # DEPRECATED FOR NOW
-    # 8. Fetch User Profile query
-    async def fetch_user_profile(self, user_id: str) -> List[Dict]:
-        """Fetch user profile using the provided template"""
-        async with get_db() as conn:
+            album = DatabaseAlbum(**dict(album_result))
+
+            # Then get all tracks and their stream counts from the past week
             results = await conn.fetch(
                 """
-                with top_tracks as (
-                    select
-                        track_id,
-                        position,
-                        created_at::date as top_track_at,
-                        min(created_at::date) over (partition by track_id) as first_added_at
-                    from
-                        user_top_tracks
-                    where
-                        user_id = $1
-                ), enriched_tracks as (
-                    select
-                        s.timestamp::date as stream_recorded_at,
-                        t.name as track_name,
-                        t.track_id,
-                        a.name as album_name,
-                        a.cover_art,
-                        a.release_date,
-                        a.artist_name,
-                        max(s.play_count) AS play_count
-                    from
-                        streams s
-                    left join
-                        tracks t
-                    on
-                        s.track_id = t.track_id
-                    left join
-                        albums a
-                    on
-                        t.album_id = a.album_id
-                    where
-                        s.track_id in (select distinct track_id from top_tracks) and
-                        t.track_id in (select distinct track_id from top_tracks)
-                    group by
-                        1,
-                        2,
-                        3,
-                        4,
-                        5,
-                        6,
-                        7
-                )
-                select
-                    et.album_name,
-                    et.artist_name,
-                    et.track_name,
-                    et.play_count,
-                    tt.position,
-                    et.cover_art,
-                    et.release_date,
-                    tt.top_track_at,
-                    tt.first_added_at,
-                    et.stream_recorded_at
-                from
-                    enriched_tracks et
-                left join
-                    top_tracks tt
-                on
-                    et.track_id = tt.track_id and
-                    et.stream_recorded_at = tt.top_track_at
-            """,
-                user_id,
+                SELECT
+                    t.track_id,
+                    t.name as track_name,
+                    t.album_id,
+                    s.play_count,
+                    s.timestamp
+                FROM tracks t
+                LEFT JOIN streams s ON s.track_id = t.track_id
+                WHERE t.album_id = $1
+                AND (s.timestamp IS NULL OR s.timestamp >= CURRENT_DATE - INTERVAL '7 days')
+                ORDER BY t.track_id, s.timestamp DESC
+                """,
+                album_id,
             )
 
-            return [dict(r) for r in results]
+            # Create StreamResponse objects for each stream record
+            streams = []
+            for r in results:
+                track = DatabaseTrack(
+                    track_id=r["track_id"],
+                    track_name=r["track_name"],
+                    album_id=r["album_id"],
+                )
+                stream = DatabaseStream(
+                    track_id=r["track_id"],
+                    album_id=r["album_id"],
+                    play_count=r["play_count"] or 0,
+                    timestamp=r["timestamp"] or datetime.now(),
+                )
+                streams.append(StreamResponse.from_database(stream, track, album))
+
+            return streams
 
     # Composite operations using the individual query templates
-    async def save_complete_album(self, streams: List[Stream]) -> Dict:
+    async def save_complete_album(self, streams: List[StreamResponse]) -> Dict:
         """Save a complete album with its tracks and stream counts using the provided templates"""
+        if not streams:
+            return {"status": "error", "message": "No streams to save"}
 
         async with get_db() as conn:
             async with conn.transaction():
-                # Insert album using template
-                album = AlbumRecord(
+                # Insert album
+                album = DatabaseAlbum(
                     album_id=streams[0].album_id,
-                    album_name=streams[0].album_name,
+                    name=streams[0].album_name,
                     artist_name=streams[0].artist_name,
                     cover_art=streams[0].cover_art,
-                    release_date=streams[0].release_date,
+                    release_date=datetime.strptime(
+                        streams[0].timestamp.split("T")[0], "%Y-%m-%d"
+                    ).date(),
                 )
                 await self.insert_album(album)
 
-                # Insert tracks using template
+                # Insert tracks and streams
                 for stream in streams:
-                    track = TrackRecord(
+                    track = DatabaseTrack(
                         track_id=stream.track_id,
                         track_name=stream.track_name,
                         album_id=stream.album_id,
                     )
                     await self.insert_track(track)
-                    s = StreamRecord(
-                        album_id=stream.album_id,
+
+                    db_stream = DatabaseStream(
                         track_id=stream.track_id,
-                        play_count=stream.play_count,
+                        album_id=stream.album_id,
+                        play_count=stream.stream_count,
+                        timestamp=datetime.strptime(
+                            stream.timestamp, "%Y-%m-%dT%H:%M:%SZ"
+                        ),
                     )
-                    await self.insert_stream(s)
+                    await self.insert_stream(db_stream)
 
                 return {
                     "album_id": streams[0].album_id,
                     "tracks_saved": len(streams),
                     "streams_saved": len(streams),
                 }
-
-    # DEPRECATED FOR NOW
-    async def save_user_top_tracks(self, user_id: str, tracks_data: List[Dict]) -> Dict:
-        """Save a user's top tracks using the provided templates"""
-        if not tracks_data:
-            return {"tracks_saved": 0, "albums_to_fetch": []}
-
-        # Collect album IDs to check which need to be fetched
-        album_ids_to_check = []
-
-        async with get_db() as conn:
-            # Insert user top tracks using template
-            for track in tracks_data:
-                await self.insert_user_top_track(
-                    conn, user_id, track["track_id"], track["position"]
-                )
-
-                # Add album ID to check list if available
-                if "album_id" in track and track["album_id"]:
-                    album_ids_to_check.append(track["album_id"])
-
-        # Check which albums don't exist
-        albums_to_fetch = []
-        for album_id in set(album_ids_to_check):
-            exists = await self.check_album_exists(album_id)
-            if not exists:
-                albums_to_fetch.append(album_id)
-
-        return {"tracks_saved": len(tracks_data), "albums_to_fetch": albums_to_fetch}
 
     # Additional utility operations
 
@@ -379,22 +281,7 @@ class DatabaseService:
 
             return [dict(r) for r in results]
 
-    # DEPRECATED FOR NOW
-    async def get_today_top_tracks(self, user_id: str) -> List[Dict]:
-        """Get all albums with pagination"""
-        async with get_db() as conn:
-            results = await conn.fetch(
-                f"""
-                SELECT
-                    count(1) as tracks
-                FROM user_top_tracks
-                WHERE user_id = '{user_id}' and created_at::date = current_date
-            """
-            )
-
-            return [dict(r) for r in results]
-
-    async def fetch_top_tracks(self) -> List[Stream]:
+    async def fetch_top_tracks(self) -> List[StreamResponse]:
         async with get_db() as conn:
             results = await conn.fetch(
                 """
@@ -458,4 +345,26 @@ class DatabaseService:
                     ss.track_id in (select track_id from top_streams);
                 """
             )
-            return [Stream(**dict(r)) for r in results]
+            return [
+                StreamResponse.from_database(
+                    DatabaseStream(
+                        track_id=row["track_id"],
+                        album_id=row["album_id"],
+                        play_count=row["play_count"] or 0,
+                        timestamp=row["stream_recorded_at"] or datetime.now(),
+                    ),
+                    DatabaseTrack(
+                        track_id=row["track_id"],
+                        track_name=row["track_name"],
+                        album_id=row["album_id"],
+                    ),
+                    DatabaseAlbum(
+                        album_id=row["album_id"],
+                        name=row["album_name"],
+                        artist_name=row["artist_name"],
+                        cover_art=row["cover_art"],
+                        release_date=row["release_date"],
+                    ),
+                )
+                for row in results
+            ]

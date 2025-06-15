@@ -3,7 +3,7 @@ import React from 'react';
 import { Track } from '@/types/api';
 import { formatNumber } from '@/lib/utils/formatters';
 import DashboardMiniChart from './DashboardMiniChart';
-import { Star, Play } from 'lucide-react';
+import { Play } from 'lucide-react';
 
 // Extended Track interface
 interface ExtendedTrack extends Track {
@@ -16,6 +16,7 @@ interface ExtendedTrack extends Track {
     streams: number;
   }>;
   clout_points?: number;
+  cover_art?: string;
 }
 
 interface DashboardTrackCardProps {
@@ -79,19 +80,8 @@ const DashboardTrackCard: React.FC<DashboardTrackCardProps> = ({
         />
       </div>
 
-      {/* Metrics: clout and total streams only */}
-      <div className="mt-3 grid grid-cols-2 gap-2">
-        {/* Clout Score */}
-        <div className="bg-blue-950/60 rounded-lg shadow-inner py-2 px-3 flex items-center justify-between">
-          <div className="flex items-center gap-1 text-blue-400 text-xs font-medium">
-            <Star className="h-3 w-3" />
-            <span>Clout</span>
-          </div>
-          <div className="text-white font-medium text-sm">
-            {track.clout_points ? track.clout_points.toFixed(1) : '0.0'}
-          </div>
-        </div>
-
+      {/* Metrics: only total streams */}
+      <div className="mt-3 grid grid-cols-1 gap-2">
         {/* Total Streams */}
         <div className="bg-emerald-950/60 rounded-lg shadow-inner py-2 px-3 flex items-center justify-between">
           <div className="flex items-center gap-1 text-emerald-400 text-xs font-medium">

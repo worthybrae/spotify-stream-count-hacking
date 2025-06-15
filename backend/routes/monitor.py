@@ -4,10 +4,12 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict
 
-from fastapi import APIRouter, BackgroundTasks, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from services.monitor import monitor
+
+from .dependencies import verify_api_key
 
 # Set up templates
 templates_directory = Path(__file__).parent.parent / "templates"
@@ -16,7 +18,7 @@ templates = Jinja2Templates(directory=str(templates_directory))
 # Create templates directory if it doesn't exist
 os.makedirs(str(templates_directory), exist_ok=True)
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(verify_api_key)])
 
 
 @router.get("/health", summary="Get service health status")

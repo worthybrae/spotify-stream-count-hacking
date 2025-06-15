@@ -1,8 +1,9 @@
 # tasks.py
 import asyncio
+from datetime import datetime
 
 from celery_init import app
-from models import StreamRecord
+from models import DatabaseStream
 from services.cockroach import DatabaseService
 from services.unofficial_spotify import TokenManager, UnofficialSpotifyService
 
@@ -120,10 +121,12 @@ async def _fetch_album_metrics_async(album):
         album_data = await spotify.get_album_tracks(album["album_id"])
         streams_saved = 0
         for stream in album_data:
-            s = StreamRecord(
-                album_id=stream.album_id,
+            # Create stream record
+            s = DatabaseStream(
                 track_id=stream.track_id,
+                album_id=stream.album_id,
                 play_count=stream.play_count,
+                timestamp=datetime.now(),
             )
             await db_service.insert_stream(s)
             streams_saved += 1

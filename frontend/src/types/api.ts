@@ -16,21 +16,26 @@ export interface Album {
 // Update the Track interface in types/api.ts
 export interface Track {
   track_id: string;
-  name: string;
-  playcount: number;
-  artist_name?: string;
-  artist_id?: string;
-  album_id?: string;
-  album_name?: string;
-  cover_art?: string;
-  day?: string; // Optional day property for tracking daily streams
-  stream_recorded_at?: string; // Add this property to fix the error
-  clout_points?: number; // Added clout points property
-  streamHistory?: Array<{  // Optional stream history for the grouped view
+  track_name: string;
+  album_id: string;
+  album_name: string;
+  artist_name: string;
+  artist_id?: string;  // Make it optional since some tracks might not have it
+  stream_count: number;
+  timestamp: string;
+  playcount?: number;
+  name?: string;
+  day?: string;
+  stream_recorded_at?: string;
+  streamHistory?: Array<{
     date: string;
     streams: number;
   }>;
+  clout_points?: number;
+  isNew?: boolean;
+  cover_art?: string;
 }
+
 export interface AlbumResponse {
   album_id: string;
   album_name: string;
@@ -40,6 +45,14 @@ export interface AlbumResponse {
   total_streams?: number;
   cover_art?: string;
   release_date?: string;
+  album?: {
+    album_id: string;
+    album_name: string;
+    artist_id: string;
+    artist_name: string;
+    cover_art: string;
+    release_date: string;
+  };
 }
 
 export interface StreamCount {
@@ -155,4 +168,20 @@ export interface TrackCloutResponse {
     cover_art: string;
     clout_history: CloutHistoryItem[];
   }>;
+}
+
+export interface StreamResponse {
+  track_id: string;
+  track_name: string;
+  album_id: string;
+  album_name: string;
+  artist_name: string;
+  stream_count: number;
+  timestamp: string;
+}
+
+export interface StreamHistoryItem {
+  date: string;
+  streams: number;
+  newStreams: number;
 }

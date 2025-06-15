@@ -5,6 +5,7 @@ import { Track } from '@/types/api';
 interface StreamHistoryItem {
   date: string;
   streams: number;
+  newStreams: number;
 }
 
 interface TrackWithDay extends Track {
@@ -42,9 +43,10 @@ export const processTrackData = (rawTracks: Track[]): GroupedTrack[] => {
 
     // Check for different data structures
     const hasDayProperty = rawTracks.some((track: TrackWithDay) => track.day || track.stream_recorded_at);
-    const hasStreamHistoryProperty = rawTracks.some((track: TrackWithHistory) =>
-      track.streamHistory && track.streamHistory.length > 0
-    );
+    const hasStreamHistoryProperty = rawTracks.some((track: Track) => {
+      const trackWithHistory = track as TrackWithHistory;
+      return trackWithHistory.streamHistory && trackWithHistory.streamHistory.length > 0;
+    });
 
     console.log(`[processTrackData] Tracks have day/stream_recorded_at property: ${hasDayProperty}`);
     console.log(`[processTrackData] Tracks have streamHistory property: ${hasStreamHistoryProperty}`);
@@ -55,80 +57,51 @@ export const processTrackData = (rawTracks: Track[]): GroupedTrack[] => {
   console.log(`[processTrackData] Found ${Object.keys(groupedByTrackId).length} unique tracks`);
 
   // Create the grouped tracks array with stream history
-  const groupedTracks = Object.entries(groupedByTrackId).map(([trackId, trackItems]) => {
-    // Debug group
-    console.log(`[processTrackData] Processing track id: ${trackId} with ${trackItems.length} records`);
+  const groupedTracks = Object.entries(groupedByTrackId).map(([, trackItems]) => {
+    // Sort tracks by timestamp to get the most recent one
+    const sortedTracks = [...trackItems].sort((a, b) => {
+      const dateA = new Date(a.timestamp || 0);
+      const dateB = new Date(b.timestamp || 0);
+      return dateB.getTime() - dateA.getTime();
+    });
 
-    // Get the track with the max playcount to use as base
-    const trackWithMaxPlaycount = _.maxBy(trackItems, 'playcount') || trackItems[0];
+    // Get the most recent track
+    const mostRecentTrack = sortedTracks[0];
+    const currentStreams = mostRecentTrack.stream_count || 0;
 
-    // Create stream history from existing data
-    let streamHistory: StreamHistoryItem[] = [];
+    // Generate stream history from actual data
+    const streamHistory: StreamHistoryItem[] = [];
 
-    // Case 1: Track already has streamHistory property
-    if (trackItems.some(track => {
-      const trackWithHistory = track as TrackWithHistory;
-      return trackWithHistory.streamHistory &&
-        Array.isArray(trackWithHistory.streamHistory) &&
-        trackWithHistory.streamHistory.length > 0;
-    })) {
-      // Find the track with streamHistory
-      const trackWithHistory = trackItems.find(track => {
-        const castedTrack = track as TrackWithHistory;
-        return castedTrack.streamHistory &&
-          Array.isArray(castedTrack.streamHistory) &&
-          castedTrack.streamHistory.length > 0;
-      }) as TrackWithHistory;
+    // Sort all tracks by timestamp (oldest to newest)
+    const chronologicalTracks = [...trackItems].sort((a, b) => {
+      const dateA = new Date(a.timestamp || 0);
+      const dateB = new Date(b.timestamp || 0);
+      return dateA.getTime() - dateB.getTime();
+    });
 
-      if (trackWithHistory && trackWithHistory.streamHistory) {
-        const existingHistory = trackWithHistory.streamHistory;
-
-        streamHistory = existingHistory
-          .filter((item: StreamHistoryItem) => item && typeof item.date === 'string' && typeof item.streams === 'number')
-          .map((item: StreamHistoryItem) => ({
-            date: item.date,
-            streams: item.streams
-          }));
-
-        console.log(`[processTrackData] Track ${trackWithMaxPlaycount.name}: Using existing stream history with ${streamHistory.length} points`);
-      }
-    }
-    // Case 2: Tracks have day property or stream_recorded_at - create streamHistory from day-based data
-    else if (trackItems.some((track: TrackWithDay) => track.day || track.stream_recorded_at)) {
-      // Filter tracks that have the date property
-      const tracksWithDay = trackItems.filter((track: TrackWithDay) => track.day || track.stream_recorded_at) as TrackWithDay[];
-
-      // Map to a consistent date property
-      streamHistory = tracksWithDay.map(track => ({
-        date: track.stream_recorded_at || track.day || '',
-        streams: track.playcount || 0
-      }));
-
-      // Sort by date
-      streamHistory.sort((a, b) => {
-        const dateA = new Date(a.date);
-        const dateB = new Date(b.date);
-        return dateA.getTime() - dateB.getTime();
+    // Create stream history from actual data points
+    let previousStreams = 0;
+    chronologicalTracks.forEach(track => {
+      const streams = track.stream_count || 0;
+      streamHistory.push({
+        date: track.timestamp || new Date().toISOString(),
+        streams: streams,
+        newStreams: Math.max(0, streams - previousStreams)
       });
-
-      console.log(`[processTrackData] Track ${trackWithMaxPlaycount.name}: Created ${streamHistory.length} stream history points from day property`);
-    }
-
-    // If we still don't have any stream history, use current date and playcount
-    if (streamHistory.length === 0) {
-      console.log(`[processTrackData] Track ${trackWithMaxPlaycount.name}: Using current date and playcount as single data point`);
-
-      // Use current date and playcount as a single data point
-      streamHistory = [{
-        date: new Date().toISOString().split('T')[0],
-        streams: trackWithMaxPlaycount.playcount || 0
-      }];
-    }
+      previousStreams = streams;
+    });
 
     // Create final track object with stream history
     const groupedTrack: GroupedTrack = {
-      ...trackWithMaxPlaycount,
-      streamHistory
+      ...mostRecentTrack,
+      streamHistory,
+      playcount: currentStreams,
+      name: mostRecentTrack.track_name || '',
+      track_id: mostRecentTrack.track_id || '',
+      album_id: mostRecentTrack.album_id || '',
+      album_name: mostRecentTrack.album_name || '',
+      artist_name: mostRecentTrack.artist_name || '',
+      artist_id: mostRecentTrack.artist_id || mostRecentTrack.album_id // Use album_id as fallback
     };
 
     // Add clout points if available on any track in the group
@@ -168,7 +141,8 @@ export const extractStreamHistory = (track: Track): StreamHistoryItem[] => {
 
     return trackWithHistory.streamHistory.map((item: StreamHistoryItem) => ({
       date: item.date,
-      streams: item.streams
+      streams: item.streams,
+      newStreams: item.newStreams || 0
     }));
   }
 
@@ -176,13 +150,15 @@ export const extractStreamHistory = (track: Track): StreamHistoryItem[] => {
   if (trackWithDay.day || trackWithDay.stream_recorded_at) {
     return [{
       date: trackWithDay.stream_recorded_at || trackWithDay.day || '',
-      streams: track.playcount || 0
+      streams: track.playcount || 0,
+      newStreams: track.playcount || 0
     }];
   }
 
   // If no stream history data is available, return single point with current date
   return [{
     date: new Date().toISOString().split('T')[0],
-    streams: track.playcount || 0
+    streams: track.playcount || 0,
+    newStreams: track.playcount || 0
   }];
 };

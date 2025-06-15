@@ -1,72 +1,111 @@
 # routes/albums.py
-import json
 import logging
+from datetime import datetime
+from typing import List
 
-from fastapi import APIRouter, HTTPException
-from routes.dependencies import get_database_service, get_spotify_services
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
+from routes.dependencies import (
+    get_database_service,
+    get_spotify_services,
+    verify_api_key,
+)
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("album_routes")
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(verify_api_key)])
 
 
-@router.get("/{album_id}")
-async def fetch_album(album_id: str):
-    """
-    Get album details, all tracks, and their latest stream counts.
+class StreamResponse(BaseModel):
+    track_id: str
+    track_name: str
+    album_id: str
+    album_name: str
+    artist_name: str
+    stream_count: int
+    timestamp: str
+    cover_art: str | None = None
 
-    If album exists in database, returns data from database.
-    If not found, tries to fetch data from unofficial Spotify API.
-    If unofficial API fails, falls back to official Spotify API with limited data.
-    """
-    logger.info(f"Fetching album with ID: {album_id}")
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "track_id": "6rqhFgbbKwnb9MLmUQDhG6",
+                "track_name": "Welcome To New York",
+                "album_id": "6rqhFgbbKwnb9MLmUQDhG6",
+                "album_name": "1989 (Taylor's Version)",
+                "artist_name": "Taylor Swift",
+                "stream_count": 1234567,
+                "timestamp": "2024-03-21T12:00:00Z",
+                "cover_art": "https://i.scdn.co/image/ab67616d0000b273bb9d4e0f5c2d24d69a4ebd5e",
+            }
+        }
 
-    # Get services
-    db_service = get_database_service()
-    spotify_services = get_spotify_services()
-    unofficial_spotify = spotify_services["unofficial"]
 
-    # First try to get from database
+@router.get(
+    "/{album_id}",
+    response_model=List[StreamResponse],
+    summary="Get album streaming data",
+)
+async def fetch_album(
+    album_id: str,
+    spotify_services=Depends(get_spotify_services),
+    db_service=Depends(get_database_service),
+):
+    """Fetch album details and tracks from database, then unofficial, then official Spotify API."""
     try:
-        logger.info("Attempting to fetch album from database...")
+        # 1. Try to get album data from the database
         db_result = await db_service.fetch_album_data(album_id)
-
-        # If found in database with tracks, return it
         if db_result:
-            logger.info(f"Found album in database with {len(db_result)} stream records")
-            return [stream.model_dump() for stream in db_result]
-        else:
-            logger.warning("No album data found in database")
-    except Exception as db_error:
-        logger.error(
-            f"Error fetching album from database: {str(db_error)}", exc_info=True
-        )
-        # Continue to API attempt
+            return db_result
 
-    # If not in DB try unofficial API
-    try:
-        logger.info("Fetching album data from unofficial Spotify API...")
-        # Fetch album data from unofficial Spotify API - this now returns Stream objects
-        streams = await unofficial_spotify.get_album_tracks(album_id)
+        # 2. Try to get album data from the unofficial Spotify API
+        try:
+            streams = await spotify_services["unofficial"].get_album_tracks(album_id)
+            # Try to extract cover art from the first stream or from album data
+            cover_art_url = None
+            if streams and hasattr(streams[0], "cover_art") and streams[0].cover_art:
+                cover_art_url = streams[0].cover_art
+            else:
+                # Try to get cover art from the official API as a fallback
+                album_details = await spotify_services["official"].get_album(album_id)
+                if album_details and album_details["images"]:
+                    cover_art_url = album_details["images"][0]["url"]
+            # Set cover_art for all streams
+            if cover_art_url:
+                for stream in streams:
+                    stream.cover_art = cover_art_url
+            if streams:
+                await db_service.save_complete_album(streams)
+                return streams
+        except Exception as unofficial_error:
+            logger.warning(f"Unofficial Spotify API failed: {unofficial_error}")
 
-        if not streams or len(streams) == 0:
-            raise ValueError("No tracks found for this album")
+        # 3. Fallback to official Spotify API (metadata only, no stream counts)
+        album_details = await spotify_services["official"].get_album(album_id)
+        if not album_details:
+            raise HTTPException(status_code=404, detail="Album not found")
 
-        logger.info(
-            f"Successfully retrieved album from Spotify API: {streams[0].album_name}"
-        )
-        logger.info(f"Album has {len(streams)} tracks")
+        streams = []
+        for track in album_details["tracks"]["items"]:
+            streams.append(
+                StreamResponse(
+                    track_id=track["id"],
+                    track_name=track["name"],
+                    album_id=album_details["id"],
+                    album_name=album_details["name"],
+                    artist_name=album_details["artists"][0]["name"],
+                    stream_count=0,
+                    timestamp=datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
+                    cover_art=album_details["images"][0]["url"]
+                    if album_details["images"]
+                    else None,
+                )
+            )
+        await db_service.save_complete_album(streams)
+        return streams
 
-        logger.info("Saving album data to database...")
-        save_result = await db_service.save_complete_album(streams)
-        logger.info(f"Save result: {json.dumps(save_result)}")
-
-        return [stream.model_dump() for stream in streams]
-
-    except Exception as unofficial_error:
-        logger.error(
-            f"Error with unofficial API: {str(unofficial_error)}", exc_info=True
-        )
-        raise HTTPException(status_code=500, detail=str(unofficial_error))
+    except Exception as e:
+        logger.error(f"Error fetching album {album_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
