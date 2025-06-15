@@ -7,8 +7,6 @@ import { formatNumber } from '@/lib/utils/formatters';
 interface DashboardMiniChartProps {
   track: Track;
   height?: string | number;
-  showCompleteHistory?: boolean;
-  onGrowthCalculated?: (growth: number) => void;
 }
 
 // Define types for chart data with labels
@@ -33,9 +31,7 @@ interface TrackWithHistory extends Track {
 
 const DashboardMiniChart: React.FC<DashboardMiniChartProps> = ({
   track,
-  height = '100%',
-  showCompleteHistory = false,
-  onGrowthCalculated
+  height = '100%'
 }) => {
   // Process stream history data
   const { chartData, canShowChart, maxStreams, firstListenedDate } = useMemo(() => {
@@ -174,7 +170,7 @@ const DashboardMiniChart: React.FC<DashboardMiniChartProps> = ({
             dot={false}
             activeDot={{ r: 4, stroke: "#10b981", strokeWidth: 1, fill: "#10b981" }}
             isAnimationActive={false}
-            strokeDasharray={(datum) => datum.isPreRelease ? "5 5" : ""}
+            strokeDasharray={chartData[0]?.isPreRelease ? "5 5" : ""}
           />
 
           {/* Marker for first listened date */}
@@ -184,23 +180,8 @@ const DashboardMiniChart: React.FC<DashboardMiniChartProps> = ({
               dataKey="streams"
               stroke="#10b981"
               strokeWidth={0}
-              dot={(props) => {
-                const date = new Date(props.payload.date);
-                if (firstListenedDate &&
-                    date.getTime() === firstListenedDate.getTime()) {
-                  return (
-                    <circle
-                      cx={props.cx}
-                      cy={props.cy}
-                      r={5}
-                      stroke="#ffffff"
-                      strokeWidth={2}
-                      fill="#10b981"
-                    />
-                  );
-                }
-                return null;
-              }}
+              dot={false}
+              activeDot={{ r: 5, stroke: "#ffffff", strokeWidth: 2, fill: "#10b981" }}
               isAnimationActive={false}
             />
           )}
