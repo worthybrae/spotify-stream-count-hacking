@@ -1,7 +1,7 @@
 # routes/albums.py
 import logging
 from datetime import datetime
-from typing import List
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -26,7 +26,7 @@ class StreamResponse(BaseModel):
     artist_name: str
     stream_count: int
     timestamp: str
-    cover_art: str | None = None
+    cover_art: Optional[str] = None
 
     class Config:
         json_schema_extra = {
