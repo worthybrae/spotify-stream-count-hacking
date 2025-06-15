@@ -76,7 +76,6 @@ const DashboardTrackCard: React.FC<DashboardTrackCardProps> = ({
         <DashboardMiniChart
           track={track}
           height={64}
-          showCompleteHistory={true}
         />
       </div>
 
