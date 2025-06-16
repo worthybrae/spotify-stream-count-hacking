@@ -10,6 +10,7 @@ import { useEffect, useState } from 'react';
 import { GroupedTrack } from '@/types/api';
 import { processTrackData } from '@/lib/utils/dataProcessors';
 import { formatNumber } from '@/lib/utils/formatters';
+import { Play } from 'lucide-react';
 
 const HomePage = () => {
   const {
@@ -140,16 +141,17 @@ const HomePage = () => {
                   className="w-12 h-12 rounded-lg object-cover flex-shrink-0 self-center"
                 />
                 <div className="flex flex-col justify-center min-w-0 h-full">
-                  <h3 className="font-medium text-white truncate max-w-[180px]" title={track.album_name}>{abbreviate(track.album_name)}</h3>
-                  <p className="text-sm text-white/60 truncate max-w-[180px] text-left">{track.artist_name}</p>
+                  <h3 className="font-medium text-white truncate max-w-[180px] md:max-w-[240px] text-left" title={track.album_name}>{abbreviate(track.album_name)}</h3>
+                  <p className="text-sm text-white/60 truncate max-w-[180px] md:max-w-[240px] text-left">{track.artist_name}</p>
                 </div>
               </div>
               {/* Mini-cards for metrics on the right, horizontal row, with margin-top to avoid overlap */}
-              <div className="flex flex-row gap-x-2 items-center flex-shrink-0 ml-2 mt-8">
-                <div className="px-3 py-1 rounded-full bg-white/10 border border-white/20 text-xs text-white font-semibold flex items-center min-w-0">
-                  <span className="truncate">{formatNumber(track.stream_count || 0)} Streams</span>
+              <div className="flex flex-row gap-x-2 items-center flex-shrink-0 ml-2 mt-8 md:mt-8">
+                <div className="px-2 md:px-3 py-1 rounded-full bg-white/10 border border-white/20 text-xs text-white font-semibold flex items-center min-w-0">
+                  <Play className="h-3 w-3 mr-1" />
+                  <span className="truncate">{formatNumber(track.stream_count || 0)}</span>
                 </div>
-                <div className={`px-3 py-1 rounded-full border text-xs font-semibold flex items-center min-w-0 ${weeklyGrowth >= 0 ? 'bg-emerald-900/30 border-emerald-400/30 text-emerald-300' : 'bg-red-900/30 border-red-400/30 text-red-300'}`}>
+                <div className={`px-2 md:px-3 py-1 rounded-full border text-xs font-semibold flex items-center min-w-0 ${weeklyGrowth >= 0 ? 'bg-emerald-900/30 border-emerald-400/30 text-emerald-300' : 'bg-red-900/30 border-red-400/30 text-red-300'}`}>
                   <span className="truncate">{weeklyGrowth >= 0 ? '+' : ''}{weeklyGrowth.toFixed(1)}% 7d</span>
                 </div>
               </div>
