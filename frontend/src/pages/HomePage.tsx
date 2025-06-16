@@ -10,7 +10,7 @@ import { useEffect, useState } from 'react';
 import { GroupedTrack } from '@/types/api';
 import { processTrackData } from '@/lib/utils/dataProcessors';
 import { formatNumber } from '@/lib/utils/formatters';
-import { Play } from 'lucide-react';
+import { Play, TrendingUp } from 'lucide-react';
 
 const HomePage = () => {
   const {
@@ -125,34 +125,44 @@ const HomePage = () => {
               cover_art: track.cover_art || ''
             })}
           >
-            {/* Trending badge on the right, above metrics */}
-            <div className="absolute top-2 right-3 z-10">
-              <div className="bg-gradient-to-r from-emerald-500/20 to-blue-500/20 px-2 py-1 rounded-full text-xs font-medium text-emerald-300 border border-emerald-500/30 shadow whitespace-nowrap">
-                Trending
-              </div>
-            </div>
-
-            {/* Main content: flex row, justify-between */}
-            <div className="p-3 flex flex-row items-center justify-between gap-4">
-              <div className="flex items-center gap-4 min-w-0 h-full">
+            <div className="p-3 flex flex-row gap-4 items-center">
+              {/* Album art (spans both rows) */}
+              <div className="flex-none flex items-center">
                 <img
                   src={track.cover_art || ''}
                   alt={track.album_name}
-                  className="w-12 h-12 rounded-lg object-cover flex-shrink-0 self-center"
+                  className="w-14 h-14 rounded-lg object-cover"
                 />
-                <div className="flex flex-col justify-center min-w-0 h-full">
-                  <h3 className="font-medium text-white truncate max-w-[180px] md:max-w-[240px] text-left" title={track.album_name}>{abbreviate(track.album_name)}</h3>
-                  <p className="text-sm text-white/60 truncate max-w-[180px] md:max-w-[240px] text-left">{track.artist_name}</p>
-                </div>
               </div>
-              {/* Mini-cards for metrics on the right, horizontal row, with margin-top to avoid overlap */}
-              <div className="flex flex-row gap-x-2 items-center flex-shrink-0 ml-2 mt-8 md:mt-8">
-                <div className="px-2 md:px-3 py-1 rounded-full bg-white/10 border border-white/20 text-xs text-white font-semibold flex items-center min-w-0">
-                  <Play className="h-3 w-3 mr-1" />
-                  <span className="truncate">{formatNumber(track.stream_count || 0)}</span>
+              {/* Main info: relative for absolute trending icon */}
+              <div className="flex-1 min-w-0 relative flex flex-col justify-center">
+                {/* Top row: track name, trending icon (absolute) */}
+                <div className="flex justify-between items-center">
+                  <h3 className="font-medium text-white truncate text-left pr-8" title={abbreviate(track.album_name)}>
+                    {abbreviate(track.album_name)}
+                  </h3>
+                  {/* Trending icon absolute top right */}
+                  <div className="">
+                    <div className="bg-gradient-to-r from-emerald-500/20 to-blue-500/20 p-1 rounded-full text-xs font-medium text-emerald-300 border border-emerald-500/30 shadow">
+                      <TrendingUp className="h-3 w-3" />
+                    </div>
+                  </div>
                 </div>
-                <div className={`px-2 md:px-3 py-1 rounded-full border text-xs font-semibold flex items-center min-w-0 ${weeklyGrowth >= 0 ? 'bg-emerald-900/30 border-emerald-400/30 text-emerald-300' : 'bg-red-900/30 border-red-400/30 text-red-300'}`}>
-                  <span className="truncate">{weeklyGrowth >= 0 ? '+' : ''}{weeklyGrowth.toFixed(1)}% 7d</span>
+                {/* Second row: artist, release date (left); streams, % growth (right) */}
+                <div className="flex flex-row items-end justify-between w-full">
+                  <div className="flex flex-col min-w-0">
+                    <p className="text-sm text-white/60 truncate text-left">{track.artist_name}</p>
+                    <p className="text-xs text-white/40 truncate text-left">{track.release_date ? new Date(track.release_date).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : ''}</p>
+                  </div>
+                  <div className="flex flex-row gap-2 items-center ml-2 flex-shrink-0">
+                    <div className="flex items-center px-2 py-1 rounded-full bg-white/10 border border-white/20 text-xs text-white font-semibold">
+                      <Play className="h-3 w-3 mr-1" />
+                      <span>{formatNumber(track.stream_count || 0)}</span>
+                    </div>
+                    <div className={`px-2 py-1 rounded-full border text-xs font-semibold flex items-center whitespace-nowrap ${weeklyGrowth >= 0 ? 'bg-emerald-900/30 border-emerald-400/30 text-emerald-300' : 'bg-red-900/30 border-red-400/30 text-red-300'}`}>
+                      <span>{weeklyGrowth >= 0 ? '+' : ''}{weeklyGrowth.toFixed(1)}%</span>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -181,8 +191,8 @@ const HomePage = () => {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center h-full">
       {/* Left column - centered content */}
-      <div className="items-center h-full mb-8 md:mb-0 flex flex-col justify-center">
-        <div className="mt-8 mb-4 md:mt-0 md:mb-0 text-center md:text-left">
+      <div className="items-center h-full md:mb-0 flex flex-col justify-center">
+        <div className="hidden md:block md:mt-0 md:mb-0 text-center md:text-left">
           <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold text-white mb-6">
             Spotify Stream<br />Analytics
           </h1>

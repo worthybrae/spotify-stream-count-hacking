@@ -34,6 +34,7 @@ export interface Track {
   clout_points?: number;
   isNew?: boolean;
   cover_art?: string;
+  release_date?: string;
 }
 
 export interface AlbumResponse {
@@ -101,6 +102,8 @@ export interface GroupedTrack extends Track {
   }>;
   clout_points?: number;
   isNew?: boolean;
+  position?: number;
+  cloutHistory?: CloutHistoryItem[];
 }
 
 export interface CloutScoreResponse {
@@ -142,18 +145,6 @@ export interface CloutHistoryItem {
   day: string;
   daily_clout: number;
   cumulative_clout: number;
-}
-
-// Update the GroupedTrack interface to include clout-related fields
-export interface GroupedTrack extends Track {
-  streamHistory: Array<{
-    date: string;
-    streams: number;
-  }>;
-  clout_points?: number;
-  isNew?: boolean;
-  position?: number;
-  cloutHistory?: CloutHistoryItem[];
 }
 
 // Add track clout response interface

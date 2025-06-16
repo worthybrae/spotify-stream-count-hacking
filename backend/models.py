@@ -43,6 +43,7 @@ class StreamResponse(BaseModel):
     stream_count: int
     timestamp: str
     cover_art: str
+    release_date: str
 
     @classmethod
     def from_database(
@@ -58,6 +59,9 @@ class StreamResponse(BaseModel):
             stream_count=stream.play_count,
             timestamp=stream.timestamp.strftime("%Y-%m-%dT%H:%M:%SZ"),
             cover_art=album.cover_art,
+            release_date=album.release_date.strftime("%Y-%m-%d")
+            if hasattr(album, "release_date") and album.release_date
+            else "",
         )
 
 

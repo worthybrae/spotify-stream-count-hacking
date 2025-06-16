@@ -56,6 +56,7 @@ class TopTrackResponse(BaseModel):
     )
     stream_count: int = Field(..., example=12345678)
     timestamp: str = Field(..., example="2024-03-21T12:00:00Z")
+    release_date: str = Field(..., example="2023-10-27")
 
 
 @router.get(
@@ -174,7 +175,13 @@ async def top_tracks(
     try:
         # First search in database
         db_results = await db_service.fetch_top_tracks()
-        result = [stream.model_dump() for stream in db_results]
+        # Add release_date to each result
+        result = []
+        for stream in db_results:
+            d = stream.model_dump()
+            # Try to get release_date from stream if present, else empty string
+            d["release_date"] = getattr(stream, "release_date", "") or ""
+            result.append(d)
         _top_tracks_cache = result
         _top_tracks_cache_time = now
         return result
