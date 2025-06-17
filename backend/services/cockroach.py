@@ -1,4 +1,6 @@
 # services/cockroach.py
+import logging
+import traceback
 from contextlib import asynccontextmanager
 from datetime import datetime
 from typing import Dict, List
@@ -6,6 +8,8 @@ from typing import Dict, List
 import asyncpg
 from config import settings
 from models import DatabaseAlbum, DatabaseStream, DatabaseTrack, StreamResponse
+
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
@@ -26,101 +30,127 @@ class DatabaseService:
     # 1. Insert Album query
     async def insert_album(self, album: DatabaseAlbum):
         """Insert album using the provided template"""
+        logger.info(f"[DB] Inserting album: {album}")
         async with get_db() as conn:
             async with conn.transaction():
-                await conn.execute(
-                    """
-                    INSERT INTO albums (
-                        album_id,
-                        name,
-                        artist_name,
-                        cover_art,
-                        release_date
+                try:
+                    await conn.execute(
+                        """
+                        INSERT INTO albums (
+                            album_id,
+                            name,
+                            artist_name,
+                            cover_art,
+                            release_date
+                        )
+                        VALUES (
+                            $1,
+                            $2,
+                            $3,
+                            $4,
+                            $5
+                        )
+                        ON CONFLICT (
+                            album_id
+                        )
+                        DO UPDATE SET
+                            name = $2,
+                            artist_name = $3,
+                            cover_art = $4,
+                            release_date = $5
+                    """,
+                        album.album_id,
+                        album.name,
+                        album.artist_name,
+                        album.cover_art,
+                        album.release_date,
                     )
-                    VALUES (
-                        $1,
-                        $2,
-                        $3,
-                        $4,
-                        $5
+                    logger.info(f"[DB] Album inserted/updated: {album.album_id}")
+                except Exception:
+                    logger.error(
+                        f"[DB][EXCEPTION] Error inserting album: {album}\n{traceback.format_exc()}"
                     )
-                    ON CONFLICT (
-                        album_id
-                    )
-                    DO UPDATE SET
-                        name = $2,
-                        artist_name = $3,
-                        cover_art = $4,
-                        release_date = $5
-                """,
-                    album.album_id,
-                    album.name,
-                    album.artist_name,
-                    album.cover_art,
-                    album.release_date,
-                )
+                    raise
 
     # 2. Insert Track query
     async def insert_track(self, track: DatabaseTrack):
         """Insert track using the provided template"""
+        logger.info(f"[DB] Inserting track: {track}")
         async with get_db() as conn:
             async with conn.transaction():
-                await conn.execute(
-                    """
-                    INSERT INTO tracks (
-                        track_id,
-                        name,
-                        album_id
+                try:
+                    await conn.execute(
+                        """
+                        INSERT INTO tracks (
+                            track_id,
+                            name,
+                            album_id
+                        )
+                        VALUES (
+                            $1,
+                            $2,
+                            $3
+                        )
+                        ON CONFLICT (
+                            track_id
+                        )
+                        DO UPDATE
+                        SET
+                            name = $2,
+                            album_id = $3
+                    """,
+                        track.track_id,
+                        track.track_name,
+                        track.album_id,
                     )
-                    VALUES (
-                        $1,
-                        $2,
-                        $3
+                    logger.info(f"[DB] Track inserted/updated: {track.track_id}")
+                except Exception:
+                    logger.error(
+                        f"[DB][EXCEPTION] Error inserting track: {track}\n{traceback.format_exc()}"
                     )
-                    ON CONFLICT (
-                        track_id
-                    )
-                    DO UPDATE
-                    SET
-                        name = $2,
-                        album_id = $3
-                """,
-                    track.track_id,
-                    track.track_name,
-                    track.album_id,
-                )
+                    raise
 
     # 3. Insert Stream query
     async def insert_stream(self, stream: DatabaseStream):
         """Insert stream using the provided template"""
+        logger.info(f"[DB] Inserting stream: {stream}")
         async with get_db() as conn:
             async with conn.transaction():
-                await conn.execute(
-                    """
-                    INSERT INTO streams (
-                        track_id,
-                        play_count,
-                        album_id,
-                        timestamp
+                try:
+                    await conn.execute(
+                        """
+                        INSERT INTO streams (
+                            track_id,
+                            play_count,
+                            album_id,
+                            timestamp
+                        )
+                        VALUES (
+                            $1,
+                            $2,
+                            $3,
+                            $4
+                        )
+                        ON CONFLICT (
+                            track_id,
+                            play_count,
+                            album_id
+                        )
+                        DO NOTHING
+                    """,
+                        stream.track_id,
+                        stream.play_count,
+                        stream.album_id,
+                        stream.timestamp,
                     )
-                    VALUES (
-                        $1,
-                        $2,
-                        $3,
-                        $4
+                    logger.info(
+                        f"[DB] Stream inserted: {stream.track_id} play_count={stream.play_count} album_id={stream.album_id}"
                     )
-                    ON CONFLICT (
-                        track_id,
-                        play_count,
-                        album_id
+                except Exception:
+                    logger.error(
+                        f"[DB][EXCEPTION] Error inserting stream: {stream}\n{traceback.format_exc()}"
                     )
-                    DO NOTHING
-                """,
-                    stream.track_id,
-                    stream.play_count,
-                    stream.album_id,
-                    stream.timestamp,
-                )
+                    raise
 
     # 5. Check Album Existence query
     async def check_album_exists(self, album_id: str) -> bool:
@@ -220,47 +250,55 @@ class DatabaseService:
     # Composite operations using the individual query templates
     async def save_complete_album(self, streams: List[StreamResponse]) -> Dict:
         """Save a complete album with its tracks and stream counts using the provided templates"""
+        logger.info(f"[DB] save_complete_album called with {len(streams)} streams")
         if not streams:
+            logger.error("[DB] No streams to save")
             return {"status": "error", "message": "No streams to save"}
-
         async with get_db() as conn:
             async with conn.transaction():
-                # Insert album
-                album = DatabaseAlbum(
-                    album_id=streams[0].album_id,
-                    name=streams[0].album_name,
-                    artist_name=streams[0].artist_name,
-                    cover_art=streams[0].cover_art,
-                    release_date=datetime.strptime(
-                        streams[0].timestamp.split("T")[0], "%Y-%m-%d"
-                    ).date(),
-                )
-                await self.insert_album(album)
-
-                # Insert tracks and streams
-                for stream in streams:
-                    track = DatabaseTrack(
-                        track_id=stream.track_id,
-                        track_name=stream.track_name,
-                        album_id=stream.album_id,
-                    )
-                    await self.insert_track(track)
-
-                    db_stream = DatabaseStream(
-                        track_id=stream.track_id,
-                        album_id=stream.album_id,
-                        play_count=stream.stream_count,
-                        timestamp=datetime.strptime(
-                            stream.timestamp, "%Y-%m-%dT%H:%M:%SZ"
+                try:
+                    album = DatabaseAlbum(
+                        album_id=streams[0].album_id,
+                        name=streams[0].album_name,
+                        artist_name=streams[0].artist_name,
+                        cover_art=streams[0].cover_art,
+                        release_date=streams[0].release_date
+                        if isinstance(streams[0].release_date, datetime)
+                        else datetime.strptime(
+                            streams[0].release_date, "%Y-%m-%dT%H:%M:%SZ"
                         ),
                     )
-                    await self.insert_stream(db_stream)
-
-                return {
-                    "album_id": streams[0].album_id,
-                    "tracks_saved": len(streams),
-                    "streams_saved": len(streams),
-                }
+                    await self.insert_album(album)
+                    for stream in streams:
+                        track = DatabaseTrack(
+                            track_id=stream.track_id,
+                            track_name=stream.track_name,
+                            album_id=stream.album_id,
+                        )
+                        await self.insert_track(track)
+                        db_stream = DatabaseStream(
+                            track_id=stream.track_id,
+                            album_id=stream.album_id,
+                            play_count=stream.stream_count,
+                            timestamp=datetime.strptime(
+                                stream.timestamp, "%Y-%m-%dT%H:%M:%SZ"
+                            ),
+                        )
+                        await self.insert_stream(db_stream)
+                    logger.info(
+                        f"[DB] save_complete_album finished for album_id={album.album_id}"
+                    )
+                    return {
+                        "album_id": streams[0].album_id,
+                        "tracks_saved": len(streams),
+                        "streams_saved": len(streams),
+                        "status": "success",
+                    }
+                except Exception as e:
+                    logger.error(
+                        f"[DB][EXCEPTION] save_complete_album failed: {e}\n{traceback.format_exc()}"
+                    )
+                    return {"status": "error", "message": str(e)}
 
     # Additional utility operations
 

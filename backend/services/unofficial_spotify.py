@@ -7,14 +7,11 @@ This service uses TokenManager to authorize API requests.
 import asyncio
 import json
 import logging
-import random
-import time
 from datetime import datetime
 from typing import Dict, List
 from urllib.parse import quote
 
 import httpx
-from fastapi import HTTPException
 from models import StreamResponse
 
 # Import the separated TokenManager
@@ -217,11 +214,12 @@ class UnofficialSpotifyService:
                 if "date" in album_data and "isoString" in album_data["date"]:
                     try:
                         release_date_str = album_data["date"]["isoString"]
-                        # Parse the ISO date string
-                        release_date = time.strptime(
-                            release_date_str.split("T")[0], "%Y-%m-%d"
+                        # Parse the ISO date string as datetime
+                        release_date = (
+                            datetime.strptime(release_date_str, "%Y-%m-%dT%H:%M:%SZ")
+                            if "T" in release_date_str
+                            else datetime.strptime(release_date_str, "%Y-%m-%d")
                         )
-                        release_date = time.strftime("%Y-%m-%d", release_date)
                     except Exception as e:
                         logger.error(f"Error parsing release date: {e}")
 
@@ -245,41 +243,32 @@ class UnofficialSpotifyService:
                                 "profile"
                             ]["name"]
 
-                        # Create a StreamResponse object directly
+                        # Create a StreamResponse object
                         stream = StreamResponse(
                             track_id=track_data["uri"].split(":")[-1],
-                            album_id=album_data["uri"].split(":")[-1],
-                            album_name=album_data["name"],
                             track_name=track_data["name"],
+                            album_id=album_id,
+                            album_name=album_data["name"],
                             artist_name=track_artist_name,
-                            stream_count=int(track_data.get("playcount", 0) or 0),
+                            stream_count=track_data.get("playcount", 0),
                             timestamp=datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ"),
                             cover_art=cover_art_url,
+                            release_date=release_date,
                         )
-
                         output_data.append(stream)
-
-                    except Exception as track_error:
-                        logger.error(f"Error processing track: {track_error}")
-                        # Continue with other tracks
+                    except Exception as e:
+                        logger.error(f"Error processing track: {e}")
+                        continue
 
                 return output_data
 
             except Exception as e:
-                # Add the error to our list
-                errors.append(f"Attempt {attempt + 1}: {str(e)}")
-
-                # If we have another retry, use exponential backoff with jitter
+                errors.append(str(e))
                 if attempt < self.max_retries - 1:
-                    backoff_time = (2**attempt) + random.uniform(0, 1)
-                    logger.info(
-                        f"Album data fetch failed. Retrying in {backoff_time:.2f} seconds..."
-                    )
-                    await asyncio.sleep(backoff_time)
+                    await asyncio.sleep(2**attempt)  # Exponential backoff
+                continue
 
-        # If all retries failed, raise a comprehensive exception
-        detailed_errors = "\n".join(errors)
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to fetch album tracks after {self.max_retries} attempts: {detailed_errors}",
-        )
+        # If we get here, all retries failed
+        error_msg = f"Failed after {self.max_retries} attempts. Errors: {errors}"
+        logger.error(error_msg)
+        raise Exception(error_msg)

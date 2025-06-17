@@ -1,11 +1,14 @@
 # tasks.py
 import asyncio
-from datetime import datetime
+import logging
+import traceback
 
 from celery_init import app
-from models import DatabaseStream
 from services.cockroach import DatabaseService
 from services.unofficial_spotify import TokenManager, UnofficialSpotifyService
+
+# Configure logging
+logger = logging.getLogger(__name__)
 
 
 # Singleton class for tracking album position
@@ -107,35 +110,58 @@ async def _fetch_albums_batch_async():
 # Task 2: Fetch metrics for a single album (middle boxes in diagram)
 @app.task(rate_limit="200/m")
 def fetch_album_metrics(album):
-    """Fetch metrics for an album from Spotify API"""
-    return asyncio.run(_fetch_album_metrics_async(album))
+    logger.info(f"[START] fetch_album_metrics for album: {album}")
+    try:
+        result = asyncio.run(_fetch_album_metrics_async(album))
+        logger.info(
+            f"[END] fetch_album_metrics for album: {album['album_id']} result: {result}"
+        )
+        return result
+    except Exception as e:
+        logger.error(
+            f"[EXCEPTION] fetch_album_metrics for album: {album['album_id']}: {e}\n{traceback.format_exc()}"
+        )
+        return {"album_id": album["album_id"], "status": "error", "error": str(e)}
 
 
 async def _fetch_album_metrics_async(album):
-    """Async implementation of the metrics fetching"""
-    # Get Spotify service from singleton
+    logger.info(f"[ASYNC] Fetching metrics for album: {album}")
     spotify = spotify_singleton.get_service()
     db_service = db_singleton.get_service()
     try:
-        # Get album data from Spotify API
-        album_data = await spotify.get_album_tracks(album["album_id"])
+        logger.info(f"[ASYNC] Calling Spotify API for album_id: {album['album_id']}")
+        streams = await spotify.get_album_tracks(album["album_id"])
+        logger.info(
+            f"[ASYNC] Spotify returned {len(streams) if streams else 0} streams for album_id: {album['album_id']}"
+        )
+        logger.debug(f"[ASYNC] Spotify streams data: {streams}")
         streams_saved = 0
-        for stream in album_data:
-            # Create stream record
-            s = DatabaseStream(
-                track_id=stream.track_id,
-                album_id=stream.album_id,
-                play_count=stream.play_count,
-                timestamp=datetime.now(),
+        if streams:
+            logger.info(
+                f"[ASYNC] Saving streams to DB for album_id: {album['album_id']}"
             )
-            await db_service.insert_stream(s)
-            streams_saved += 1
-
+            result = await db_service.save_complete_album(streams)
+            logger.info(f"[ASYNC] DB save result: {result}")
+            if result.get("status") == "success":
+                streams_saved = len(streams)
+            else:
+                logger.error(
+                    f"[ASYNC] Error saving album streams: {result.get('message')}"
+                )
         return {
             "album_id": album["album_id"],
             "status": "success",
             "streams_saved": streams_saved,
         }
-
     except Exception as e:
+        logger.error(
+            f"[ASYNC][EXCEPTION] Error fetching album metrics: {str(e)}\n{traceback.format_exc()}"
+        )
         return {"album_id": album["album_id"], "status": "error", "error": str(e)}
+
+
+# Simple test task for verifying Celery setup
+@app.task
+def ping(x):
+    print(f"Ping received: {x}")
+    return f"Pong: {x}"

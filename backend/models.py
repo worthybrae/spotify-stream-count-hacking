@@ -1,5 +1,5 @@
 # backend/models.py
-from datetime import date, datetime
+from datetime import datetime
 from typing import Optional
 
 from pydantic import BaseModel
@@ -29,7 +29,7 @@ class DatabaseAlbum(BaseModel):
     name: str
     artist_name: str
     cover_art: str
-    release_date: date
+    release_date: datetime
 
 
 class StreamResponse(BaseModel):
@@ -43,7 +43,7 @@ class StreamResponse(BaseModel):
     stream_count: int
     timestamp: str
     cover_art: str
-    release_date: str
+    release_date: datetime
 
     @classmethod
     def from_database(
@@ -59,9 +59,7 @@ class StreamResponse(BaseModel):
             stream_count=stream.play_count,
             timestamp=stream.timestamp.strftime("%Y-%m-%dT%H:%M:%SZ"),
             cover_art=album.cover_art,
-            release_date=album.release_date.strftime("%Y-%m-%d")
-            if hasattr(album, "release_date") and album.release_date
-            else "",
+            release_date=album.release_date,
         )
 
 

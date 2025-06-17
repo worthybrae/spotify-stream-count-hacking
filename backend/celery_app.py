@@ -8,16 +8,29 @@ from celery_init import app
 
 # Additional configuration
 app.conf.update(
+    # Enable task events for Flower monitoring
+    worker_send_task_events=True,
+    task_send_sent_event=True,
+    task_track_started=True,
+    task_ignore_result=False,
+    # Basic configuration
     worker_prefetch_multiplier=1,
     task_acks_late=True,
     task_default_rate_limit="300/m",
-    # Add these for better reliability with recursive tasks
+    # Task time limits
     task_time_limit=600,  # 10 minutes max per task
-    task_soft_time_limit=540,  # 9 minutes soft limit (for graceful timeout)
-    # Prevent thundering herd problem (many tasks at once)
+    task_soft_time_limit=540,  # 9 minutes soft limit
+    # Queue configuration
     task_default_queue_max_priority=10,
-    # Prevent overloading the broker with too many pending tasks
     broker_transport_options={"visibility_timeout": 43200},  # 12 hours
+    # Result backend configuration
+    result_backend="redis://localhost:6379/0",
+    result_expires=3600,  # Results expire after 1 hour
+    # Broker configuration
+    broker_url="redis://localhost:6379/0",
+    # Enable task events
+    event_queue_ttl=5.0,
+    event_queue_expires=60.0,
 )
 
 # Task routing

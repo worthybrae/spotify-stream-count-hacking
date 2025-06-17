@@ -1,6 +1,7 @@
 # routes/search.py
 import time
 import traceback
+from datetime import datetime
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -179,8 +180,11 @@ async def top_tracks(
         result = []
         for stream in db_results:
             d = stream.model_dump()
+            # Convert release_date to string if it's a datetime
+            if isinstance(d.get("release_date"), datetime):
+                d["release_date"] = d["release_date"].strftime("%Y-%m-%d")
             # Try to get release_date from stream if present, else empty string
-            d["release_date"] = getattr(stream, "release_date", "") or ""
+            d["release_date"] = d.get("release_date", "") or ""
             result.append(d)
         _top_tracks_cache = result
         _top_tracks_cache_time = now
