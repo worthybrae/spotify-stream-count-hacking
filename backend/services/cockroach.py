@@ -217,24 +217,33 @@ class DatabaseService:
             album = DatabaseAlbum(**dict(album_result))
 
             # Get all tracks with their percentage changes over the specified period
+            # First, try to get the latest stream data for each track
             results = await conn.fetch(
                 """
                 with latest_streams as (
                     select
-                        album_id,
-                        track_id,
-                        timestamp::date as stream_recorded_at,
-                        max(play_count) as daily_play_count
+                        s.album_id,
+                        s.track_id,
+                        s.timestamp::date as stream_recorded_at,
+                        s.play_count as daily_play_count,
+                        row_number() over (partition by s.track_id order by s.timestamp desc) as rn
                     from
-                        streams
+                        streams s
                     where
-                        album_id = $1
-                        and timestamp between CURRENT_DATE - ($2 || ' days')::interval and CURRENT_DATE
-                        and play_count > 0
-                    group by
-                        album_id,
-                        track_id,
-                        stream_recorded_at
+                        s.album_id = $1
+                        and s.play_count > 0
+                ), historical_streams as (
+                    select
+                        s.album_id,
+                        s.track_id,
+                        s.timestamp::date as stream_recorded_at,
+                        s.play_count as daily_play_count
+                    from
+                        streams s
+                    where
+                        s.album_id = $1
+                        and s.timestamp between CURRENT_DATE - ($2 || ' days')::interval and CURRENT_DATE
+                        and s.play_count > 0
                 ), track_metrics as (
                     select
                         album_id,
@@ -243,7 +252,7 @@ class DatabaseService:
                         max(daily_play_count) as end_streams,
                         max(stream_recorded_at) as latest_date
                     from
-                        latest_streams
+                        historical_streams
                     group by
                         album_id,
                         track_id
@@ -271,13 +280,13 @@ class DatabaseService:
                 from
                     tracks t
                 left join
-                    latest_streams ls on ls.track_id = t.track_id
+                    latest_streams ls on ls.track_id = t.track_id and ls.rn = 1
                 left join
                     track_changes tc on tc.track_id = t.track_id
                 where
                     t.album_id = $1
                 order by
-                    t.track_id, ls.stream_recorded_at asc
+                    t.track_id
                 """,
                 album_id,
                 days,
@@ -401,6 +410,22 @@ class DatabaseService:
                         )
                         for stream in streams
                     ]
+
+                    # Debug logging to check stream counts before saving
+                    logger.info(f"[DB] DEBUG: About to save {len(stream_data)} streams")
+                    for i, (track_id, play_count, album_id, timestamp) in enumerate(
+                        stream_data[:3]
+                    ):  # Log first 3
+                        logger.info(
+                            f"[DB] DEBUG: Stream {i}: track_id={track_id}, play_count={play_count}, album_id={album_id}"
+                        )
+
+                    # Also log the original stream objects
+                    for i, stream in enumerate(streams[:3]):  # Log first 3
+                        logger.info(
+                            f"[DB] DEBUG: Original stream {i}: track_id={stream.track_id}, stream_count={stream.stream_count}"
+                        )
+
                     await conn.executemany(
                         """
                         INSERT INTO streams (

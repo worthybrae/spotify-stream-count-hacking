@@ -244,13 +244,18 @@ class UnofficialSpotifyService:
                             ]["name"]
 
                         # Create a StreamResponse object
+                        playcount = track_data.get("playcount", 0)
+                        logger.info(
+                            f"[API] DEBUG: Track '{track_data['name']}' has playcount: {playcount} (type: {type(playcount)})"
+                        )
+
                         stream = StreamResponse(
                             track_id=track_data["uri"].split(":")[-1],
                             track_name=track_data["name"],
                             album_id=album_id,
                             album_name=album_data["name"],
                             artist_name=track_artist_name,
-                            stream_count=track_data.get("playcount", 0),
+                            stream_count=playcount,
                             timestamp=datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ"),
                             cover_art=cover_art_url,
                             release_date=release_date,
