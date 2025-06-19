@@ -18,7 +18,7 @@ router = APIRouter(dependencies=[Depends(verify_api_key)])
 # Add a simple in-memory cache for top tracks
 _top_tracks_cache = {}
 _top_tracks_cache_time = {}
-_TOP_TRACKS_CACHE_TTL = 60 * 60 * 24  # 24 hours in seconds
+_TOP_TRACKS_CACHE_TTL = 60 * 60  # 1 hour in seconds
 
 
 class AlbumSearchResponse(BaseModel):
