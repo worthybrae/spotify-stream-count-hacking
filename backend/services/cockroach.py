@@ -309,9 +309,9 @@ class DatabaseService:
 
             return streams
 
-    # Composite operations using the individual query templates
+    # Composite operations using bulk operations for better performance
     async def save_complete_album(self, streams: List[StreamResponse]) -> Dict:
-        """Save a complete album with its tracks and stream counts using the provided templates"""
+        """Save a complete album with its tracks and stream counts using bulk operations"""
         logger.info(f"[DB] save_complete_album called with {len(streams)} streams")
         if not streams:
             logger.error("[DB] No streams to save")
@@ -319,6 +319,7 @@ class DatabaseService:
         async with get_db() as conn:
             async with conn.transaction():
                 try:
+                    # Insert album once
                     album = DatabaseAlbum(
                         album_id=streams[0].album_id,
                         name=streams[0].album_name,
@@ -330,25 +331,102 @@ class DatabaseService:
                             streams[0].release_date, "%Y-%m-%dT%H:%M:%SZ"
                         ),
                     )
-                    await self.insert_album(album)
-                    for stream in streams:
-                        track = DatabaseTrack(
-                            track_id=stream.track_id,
-                            track_name=stream.track_name,
-                            album_id=stream.album_id,
+                    await conn.execute(
+                        """
+                        INSERT INTO albums (
+                            album_id,
+                            name,
+                            artist_name,
+                            cover_art,
+                            release_date
                         )
-                        await self.insert_track(track)
-                        db_stream = DatabaseStream(
-                            track_id=stream.track_id,
-                            album_id=stream.album_id,
-                            play_count=stream.stream_count,
-                            timestamp=datetime.strptime(
-                                stream.timestamp, "%Y-%m-%dT%H:%M:%SZ"
-                            ),
+                        VALUES (
+                            $1,
+                            $2,
+                            $3,
+                            $4,
+                            $5
                         )
-                        await self.insert_stream(db_stream)
+                        ON CONFLICT (
+                            album_id
+                        )
+                        DO UPDATE SET
+                            name = $2,
+                            artist_name = $3,
+                            cover_art = $4,
+                            release_date = $5
+                    """,
+                        album.album_id,
+                        album.name,
+                        album.artist_name,
+                        album.cover_art,
+                        album.release_date,
+                    )
+
+                    # Bulk insert tracks
+                    track_data = [
+                        (stream.track_id, stream.track_name, stream.album_id)
+                        for stream in streams
+                    ]
+                    await conn.executemany(
+                        """
+                        INSERT INTO tracks (
+                            track_id,
+                            name,
+                            album_id
+                        )
+                        VALUES (
+                            $1,
+                            $2,
+                            $3
+                        )
+                        ON CONFLICT (
+                            track_id
+                        )
+                        DO UPDATE
+                        SET
+                            name = $2,
+                            album_id = $3
+                        """,
+                        track_data,
+                    )
+
+                    # Bulk insert streams
+                    stream_data = [
+                        (
+                            stream.track_id,
+                            stream.stream_count,
+                            stream.album_id,
+                            datetime.strptime(stream.timestamp, "%Y-%m-%dT%H:%M:%SZ"),
+                        )
+                        for stream in streams
+                    ]
+                    await conn.executemany(
+                        """
+                        INSERT INTO streams (
+                            track_id,
+                            play_count,
+                            album_id,
+                            timestamp
+                        )
+                        VALUES (
+                            $1,
+                            $2,
+                            $3,
+                            $4
+                        )
+                        ON CONFLICT (
+                            track_id,
+                            play_count,
+                            album_id
+                        )
+                        DO NOTHING
+                        """,
+                        stream_data,
+                    )
+
                     logger.info(
-                        f"[DB] save_complete_album finished for album_id={album.album_id}"
+                        f"[DB] save_complete_album finished for album_id={album.album_id} with {len(streams)} tracks using bulk operations"
                     )
                     return {
                         "album_id": streams[0].album_id,

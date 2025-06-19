@@ -14,7 +14,7 @@ app.conf.update(
     task_track_started=True,
     task_ignore_result=False,
     # Basic configuration
-    worker_prefetch_multiplier=1,
+    worker_prefetch_multiplier=4,
     task_acks_late=True,
     task_default_rate_limit="300/m",
     # Task time limits
