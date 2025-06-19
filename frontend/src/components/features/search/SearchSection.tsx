@@ -9,12 +9,14 @@ import { searchAlbums } from '@/lib/api';
 interface SearchSectionProps {
   onAlbumSelect: (result: SearchResult) => void;
   onSearchValueChange?: (value: string) => void;
+  onSearchStateChange?: (hasResults: boolean) => void;
   renderTrendingTracks?: React.ReactNode;
 }
 
 const SearchSection: React.FC<SearchSectionProps> = ({
   onAlbumSelect,
   onSearchValueChange,
+  onSearchStateChange,
   renderTrendingTracks
 }) => {
   const {
@@ -47,6 +49,8 @@ const SearchSection: React.FC<SearchSectionProps> = ({
       onSearchValueChange(searchValue);
     }
   }, [searchValue, onSearchValueChange]);
+
+
 
   // Handle result selection
   const handleResultSelect = (result: SearchResult) => {
@@ -107,6 +111,14 @@ const SearchSection: React.FC<SearchSectionProps> = ({
     (spotifySearching ? 'searching' : (spotifyResults.length === 0 ? 'no-results' : 'idle'))
     : searchStatus;
 
+  // Notify parent of search state changes (when results are loaded)
+  useEffect(() => {
+    if (onSearchStateChange) {
+      const hasResults = showSearchResults && displayResults.length > 0;
+      onSearchStateChange(hasResults);
+    }
+  }, [onSearchStateChange, showSearchResults, displayResults.length]);
+
   return (
     <div className="w-full space-y-4">
       {/* Search input */}
@@ -120,7 +132,7 @@ const SearchSection: React.FC<SearchSectionProps> = ({
 
       {/* Feature grid or search results */}
       {showTrending && renderTrendingTracks}
-      {showSearchResults && (
+      {showSearchResults && displayResults.length > 0 && (
         <SearchResults
           isVisible={true}
           results={displayResults}

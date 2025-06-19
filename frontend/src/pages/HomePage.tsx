@@ -50,6 +50,10 @@ const HomePage = () => {
   const [trendingLoading, setTrendingLoading] = useState(true);
   const [trendingError, setTrendingError] = useState<string | null>(null);
 
+  // Search state
+  const [searchValue, setSearchValue] = useState<string>('');
+  const [hasSearchResults, setHasSearchResults] = useState<boolean>(false);
+
   // Helper to get 7d growth for a track from backend data
   const getWeeklyGrowth = (track: GroupedTrack) => {
     // Use backend-calculated percentage change if available
@@ -87,26 +91,42 @@ const HomePage = () => {
       });
   }, []);
 
+  const isSearching = searchValue.trim().length >= 3 && hasSearchResults;
+
   const trendingTracksSection = (
-    <section className="flex flex-col gap-6" aria-labelledby="trending-title">
+    <section className="flex flex-col gap-4" aria-labelledby="trending-title">
       {/* Header with search and title */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <h2 id="trending-title" className="text-2xl font-bold text-white">Trending Songs</h2>
           <div className="text-xs text-white/40 font-medium">Updated daily</div>
         </div>
-        <SearchSection onAlbumSelect={handleAlbumSelect} />
+                <SearchSection
+          onAlbumSelect={handleAlbumSelect}
+          onSearchValueChange={(value) => {
+            setSearchValue(value);
+            // Reset search results state when search value changes
+            if (value.trim().length < 3) {
+              setHasSearchResults(false);
+            }
+          }}
+          onSearchStateChange={(hasResults) => setHasSearchResults(hasResults)}
+        />
       </div>
-      {trendingLoading && (
-        <div className="text-white/70 text-center py-8">Loading trending Spotify tracks...</div>
-      )}
-      {trendingError && (
-        <div className="text-red-400 text-center py-8">{trendingError}</div>
-      )}
-      {!trendingLoading && !trendingError && groupedTrendingTracks.length === 0 && (
-        <div className="text-white/70 text-center py-8">No trending Spotify streaming data found.</div>
-      )}
-      {!trendingLoading && !trendingError && sortedTrendingTracks.slice(0, 5).map((track) => {
+
+      {/* Only show trending content when not actively searching */}
+      {!isSearching && (
+        <>
+          {trendingLoading && (
+            <div className="text-white/70 text-center py-8">Loading trending Spotify tracks...</div>
+          )}
+          {trendingError && (
+            <div className="text-red-400 text-center py-8">{trendingError}</div>
+          )}
+          {!trendingLoading && !trendingError && groupedTrendingTracks.length === 0 && (
+            <div className="text-white/70 text-center py-8">No trending Spotify streaming data found.</div>
+          )}
+          {!trendingLoading && !trendingError && sortedTrendingTracks.slice(0, 5).map((track) => {
         // Calculate 7-day growth
         const streamHistory = track.streamHistory || [];
         let weeklyGrowth = 0;
@@ -183,6 +203,8 @@ const HomePage = () => {
           </Card>
         );
       })}
+        </>
+      )}
     </section>
   );
 
@@ -231,9 +253,9 @@ const HomePage = () => {
         }}
       />
 
-      <main className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center h-full" role="main">
+      <main className="flex flex-col md:grid md:grid-cols-2 gap-4 md:gap-8 items-center h-full" role="main">
         {/* Left column - centered content */}
-        <section className="flex items-center justify-center h-full" aria-labelledby="main-heading">
+        <section className="flex items-center justify-center md:h-full py-4 md:py-0" aria-labelledby="main-heading">
           <div className="text-center w-full">
             <h1 id="main-heading" className="text-4xl md:text-6xl font-bold mb-4 bg-gradient-to-r from-white via-cyan-100 to-cyan-300 bg-clip-text text-transparent leading-tight">
               Spotify Streaming Data
@@ -262,13 +284,11 @@ const HomePage = () => {
               </div>
             </div>
           </div>
-
-
         </section>
 
         {/* Right column - trending songs */}
-        <section className="h-full flex flex-col justify-center">
-          <div className="px-2 pb-4">
+        <section className="w-full flex-1 md:h-full flex flex-col justify-center">
+          <div className="w-full px-2 pb-4">
             {trendingTracksSection}
           </div>
         </section>

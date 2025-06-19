@@ -14,6 +14,11 @@ export const formatNumber = (num: number): string => {
   return num.toFixed(0);
 };
 
+// Format numbers with commas (no abbreviation)
+export const formatNumberWithCommas = (num: number): string => {
+  return Math.round(num).toLocaleString();
+};
+
 // Format date from ISO string to human readable format
 export const formatDate = (dateString: string): string => {
   const date = new Date(dateString);
@@ -27,7 +32,7 @@ export const formatDate = (dateString: string): string => {
 // Format timestamp from ISO string to human readable format
 export const formatTimestamp = (timestamp: string): string => {
   const date = new Date(timestamp);
-  
+
   // Format: "Mar 6, 2025, 14:23:45"
   return date.toLocaleString('en-US', {
     month: 'short',
@@ -54,14 +59,14 @@ export const formatRevenue = (amount: number): string => {
 
 // Calculate streams per day since release
 export const calculateStreamsPerDay = (
-  releaseDate: string, 
+  releaseDate: string,
   totalStreams: number
 ): number => {
   const release = new Date(releaseDate);
   const today = new Date();
   const diffTime = Math.abs(today.getTime() - release.getTime());
   const diffDays = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
-  
+
   // Avoid division by zero and ensure at least 1 day
   return totalStreams / diffDays;
 };
@@ -76,39 +81,39 @@ export const generateStreamHistory = (
   const today = new Date();
   const diffTime = Math.abs(today.getTime() - release.getTime());
   const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-  
+
   // Determine actual number of points (can't have more points than days)
   const actualPoints = Math.min(numPoints, diffDays);
-  
+
   // Calculate avg streams per day
   const avgStreamsPerDay = totalStreams / diffDays;
-  
+
   // Generate realistic-looking stream data
   const data: Array<{ date: string; streams: number }> = [];
-  let currentDate = new Date(release);
+  const currentDate = new Date(release);
   let accumulatedStreams = 0;
-  
+
   // Step size for date increments
   const step = diffDays / actualPoints;
-  
+
   for (let i = 0; i < actualPoints; i++) {
     // Add some randomness to make it look realistic
     // Albums typically have higher streams when first released
     const dayFactor = Math.max(0.2, 1 - (i / actualPoints)); // Higher early on
     const randomFactor = 0.5 + Math.random();
     const dailyStreams = avgStreamsPerDay * dayFactor * randomFactor;
-    
+
     accumulatedStreams += dailyStreams;
-    
+
     // Increment date by step
     currentDate.setDate(currentDate.getDate() + step);
-    
+
     data.push({
       date: currentDate.toISOString().split('T')[0],
       streams: Math.round(accumulatedStreams)
     });
   }
-  
+
   return data;
 };
 
@@ -121,27 +126,27 @@ export const calculateWeeklyNewStreams = (
   streamHistory: Array<{date: string, streams: number}> | undefined
 ): number => {
   if (!streamHistory || streamHistory.length < 2) return 0;
-  
+
   // Sort by date
-  const sortedHistory = [...streamHistory].sort((a, b) => 
+  const sortedHistory = [...streamHistory].sort((a, b) =>
     new Date(a.date).getTime() - new Date(b.date).getTime()
   );
-  
+
   // Get only the last 8 data points (to calculate 7 days of changes)
-  const recentData = sortedHistory.length > 8 
-    ? sortedHistory.slice(-8) 
+  const recentData = sortedHistory.length > 8
+    ? sortedHistory.slice(-8)
     : sortedHistory;
-  
+
   // Need at least 2 points to calculate change
   if (recentData.length < 2) return 0;
-  
+
   // Sum all new streams in the period
   let totalNewStreams = 0;
   for (let i = 1; i < recentData.length; i++) {
     const dailyNew = Math.max(0, recentData[i].streams - recentData[i-1].streams);
     totalNewStreams += dailyNew;
   }
-  
+
   return totalNewStreams;
 };
 
@@ -154,35 +159,35 @@ export const getCumulativeStreamData = (
   streamHistory: Array<{date: string, streams: number}> | undefined
 ): Array<{date: string, dailyNew: number, cumulativeNew: number}> => {
   if (!streamHistory || streamHistory.length < 2) return [];
-  
+
   // Sort by date
-  const sortedHistory = [...streamHistory].sort((a, b) => 
+  const sortedHistory = [...streamHistory].sort((a, b) =>
     new Date(a.date).getTime() - new Date(b.date).getTime()
   );
-  
+
   // Get only the last 8 data points (to calculate 7 days of changes)
-  const recentData = sortedHistory.length > 8 
-    ? sortedHistory.slice(-8) 
+  const recentData = sortedHistory.length > 8
+    ? sortedHistory.slice(-8)
     : sortedHistory;
-  
+
   // Need at least 2 points to calculate change
   if (recentData.length < 2) return [];
-  
+
   // Calculate daily new and cumulative new streams
   const chartData = [];
   let cumulativeNewStreams = 0;
-  
+
   for (let i = 1; i < recentData.length; i++) {
     const dailyNew = Math.max(0, recentData[i].streams - recentData[i-1].streams);
     cumulativeNewStreams += dailyNew;
-    
+
     chartData.push({
       date: recentData[i].date,
       dailyNew,
       cumulativeNew: cumulativeNewStreams
     });
   }
-  
+
   return chartData;
 };
 

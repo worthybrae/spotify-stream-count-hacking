@@ -3,7 +3,7 @@ import { Loader2, ArrowLeft, TrendingUp, TrendingDown, Activity, Clock, DollarSi
 import { SearchResult } from '@/types/search';
 import { Track } from '@/types/api';
 import { processTrackData } from '@/lib/utils/dataProcessors';
-import { formatNumber, formatRevenue, calculateRevenue } from '@/lib/utils/formatters';
+import { formatNumber, formatNumberWithCommas, formatRevenue, calculateRevenue } from '@/lib/utils/formatters';
 import { downloadAlbumData } from '@/lib/utils/downloadUtils';
 import { Button } from '@/components/ui/button';
 import UpdatedMiniStreamChart from '../tracks/UpdatedMiniStreamChart';
@@ -111,7 +111,7 @@ const TrackRow: React.FC<TrackRowProps> = ({ track, index, totalTracks }) => {
         </div>
 
         {/* Track Information */}
-        <div className="flex-1 min-w-0">
+        <div className="w-64 lg:w-80 min-w-0">
           <div className="flex items-center gap-3 mb-2">
             <h3 className="text-xl font-bold text-white truncate group-hover:text-cyan-300 transition-colors duration-300">
               {track.name}
@@ -123,8 +123,8 @@ const TrackRow: React.FC<TrackRowProps> = ({ track, index, totalTracks }) => {
         </div>
 
         {/* Expanded Mini Chart */}
-        <div className="hidden lg:block flex-shrink-0 w-64 h-20">
-          <UpdatedMiniStreamChart track={track} height={80} />
+        <div className="hidden md:block flex-shrink-0 w-48 lg:w-64 h-16 lg:h-20">
+          <UpdatedMiniStreamChart track={track} height="100%" />
         </div>
 
         {/* Professional Metrics Grid */}
@@ -443,7 +443,7 @@ const UpdatedAlbumDetail: React.FC<AlbumDetailProps> = ({
                           <div className="w-8 h-8 rounded-full bg-purple-500/20 flex items-center justify-center">
                             <Clock className="w-4 h-4 text-purple-400" />
                           </div>
-                          <span className="font-medium">{daysSinceRelease} days in market</span>
+                          <span className="font-medium">{formatNumberWithCommas(daysSinceRelease)} days in market</span>
                         </div>
                         <div className="flex items-center gap-3">
                           <div className="w-8 h-8 rounded-full bg-orange-500/20 flex items-center justify-center">
