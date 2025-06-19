@@ -43,7 +43,12 @@ const HomePage = () => {
     window.dispatchEvent(event);
   };
 
-
+  // Handle time period change
+  const handleTimePeriodChange = (period: string) => {
+    if (selectedAlbum) {
+      fetchAlbumData(selectedAlbum, period);
+    }
+  };
 
   // Trending songs state
   const [groupedTrendingTracks, setGroupedTrendingTracks] = useState<GroupedTrack[]>([]);
@@ -218,6 +223,7 @@ const HomePage = () => {
           loading={loading}
           error={error}
           onBackToSearch={handleBackToSearch}
+          onTimePeriodChange={handleTimePeriodChange}
           albumDetails={albumDetails ?? null}
         />
       </div>

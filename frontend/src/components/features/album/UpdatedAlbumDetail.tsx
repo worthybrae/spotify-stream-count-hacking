@@ -36,6 +36,7 @@ interface AlbumDetailProps {
   loading: boolean;
   error: string | null;
   onBackToSearch: () => void;
+  onTimePeriodChange?: (period: string) => void;
   albumDetails: AlbumDetails | null;
 }
 
@@ -43,9 +44,10 @@ interface TrackRowProps {
   track: TrackWithHistory;
   index: number;
   totalTracks: number;
+  timePeriod?: string;
 }
 
-const TrackRow: React.FC<TrackRowProps> = ({ track, index, totalTracks }) => {
+const TrackRow: React.FC<TrackRowProps> = ({ track, index, totalTracks, timePeriod = '7d' }) => {
   const revenue = calculateRevenue(track.playcount || 0);
   const marketShare = totalTracks > 0 ? ((track.playcount || 0) / totalTracks) * 100 : 0;
 
@@ -147,7 +149,7 @@ const TrackRow: React.FC<TrackRowProps> = ({ track, index, totalTracks }) => {
               <span>{growth === 0 ? '-' : `${Math.abs(growth).toFixed(1)}%`}</span>
             </div>
             <div className="text-xs text-slate-400 uppercase tracking-wider font-medium">
-              7D Growth
+              {timePeriod.toUpperCase()} Growth
             </div>
           </div>
 
@@ -246,8 +248,20 @@ const UpdatedAlbumDetail: React.FC<AlbumDetailProps> = ({
   loading,
   error,
   onBackToSearch,
+  onTimePeriodChange,
   albumDetails
 }) => {
+  // Time period state
+  const [selectedPeriod, setSelectedPeriod] = useState<'7d' | '30d'>('7d');
+
+  // Handle time period change
+  const handlePeriodChange = (period: '7d' | '30d') => {
+    setSelectedPeriod(period);
+    if (onTimePeriodChange) {
+      onTimePeriodChange(period);
+    }
+  };
+
   // Initialize processed tracks and calculated total streams
   const { processedTracks, calculatedTotalStreams, totalRevenue, avgGrowth } = useMemo(() => {
     // Early return for empty tracks
@@ -534,7 +548,7 @@ const UpdatedAlbumDetail: React.FC<AlbumDetailProps> = ({
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2 mb-1">
                                 <span className="text-xs text-purple-300/90 uppercase tracking-wider font-bold">
-                                  7D Growth
+                                  {selectedPeriod.toUpperCase()} Growth
                                 </span>
                                 <CheckCircle className="w-3 h-3 text-emerald-400/80" />
                               </div>
@@ -569,6 +583,30 @@ const UpdatedAlbumDetail: React.FC<AlbumDetailProps> = ({
                   Real-time Spotify streaming data analytics with advanced market insights for {album.album_name}
                 </p>
               </div>
+
+              {/* Time Period Toggle */}
+              <div className="flex items-center gap-1 p-1 bg-slate-800/30 backdrop-blur-xl rounded-xl border border-slate-700/50">
+                <button
+                  onClick={() => handlePeriodChange('7d')}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-300 ${
+                    selectedPeriod === '7d'
+                      ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'
+                      : 'text-slate-400 hover:text-white hover:bg-slate-700/30'
+                  }`}
+                >
+                  7D
+                </button>
+                <button
+                  onClick={() => handlePeriodChange('30d')}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-300 ${
+                    selectedPeriod === '30d'
+                      ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'
+                      : 'text-slate-400 hover:text-white hover:bg-slate-700/30'
+                  }`}
+                >
+                  30D
+                </button>
+              </div>
             </div>
 
             {/* Floating Track List */}
@@ -591,6 +629,7 @@ const UpdatedAlbumDetail: React.FC<AlbumDetailProps> = ({
                       track={track}
                       index={index}
                       totalTracks={actualTotalStreams}
+                      timePeriod={selectedPeriod}
                     />
                   ))
                 ) : (
