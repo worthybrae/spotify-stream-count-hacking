@@ -481,7 +481,7 @@ class DatabaseService:
                     from
                         streams
                     where
-                        timestamp between CURRENT_DATE - ($1 || ' days')::interval and CURRENT_DATE and
+                        timestamp >= CURRENT_TIMESTAMP - ($1 || ' days')::interval and
                         play_count > 0
                     group by
                         album_id,
