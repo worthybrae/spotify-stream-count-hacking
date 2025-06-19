@@ -216,52 +216,33 @@ class DatabaseService:
 
             album = DatabaseAlbum(**dict(album_result))
 
-            # Get all tracks with their percentage changes over the specified period
-            # First, try to get the latest stream data for each track
+            # Get all stream counts for each track within the specified time period
             results = await conn.fetch(
                 """
-                with latest_streams as (
+                with period_streams as (
                     select
                         s.album_id,
                         s.track_id,
-                        s.timestamp::date as stream_recorded_at,
-                        s.play_count as daily_play_count,
-                        row_number() over (partition by s.track_id order by s.timestamp desc) as rn
+                        s.play_count,
+                        s.timestamp
                     from
                         streams s
                     where
                         s.album_id = $1
-                        and s.play_count > 0
-                ), historical_streams as (
-                    select
-                        s.album_id,
-                        s.track_id,
-                        s.timestamp::date as stream_recorded_at,
-                        s.play_count as daily_play_count
-                    from
-                        streams s
-                    where
-                        s.album_id = $1
-                        and s.timestamp between CURRENT_DATE - ($2 || ' days')::interval and CURRENT_DATE
+                        and s.timestamp >= CURRENT_TIMESTAMP - ($2 || ' days')::interval
                         and s.play_count > 0
                 ), track_metrics as (
                     select
-                        album_id,
                         track_id,
-                        min(daily_play_count) as start_streams,
-                        max(daily_play_count) as end_streams,
-                        max(stream_recorded_at) as latest_date
+                        min(play_count) as start_streams,
+                        max(play_count) as end_streams
                     from
-                        historical_streams
+                        period_streams
                     group by
-                        album_id,
                         track_id
                 ), track_changes as (
                     select
-                        album_id,
                         track_id,
-                        end_streams as current_streams,
-                        latest_date,
                         case
                             when start_streams > 0 then
                                 ((end_streams::float / start_streams::float) - 1) * 100
@@ -274,19 +255,19 @@ class DatabaseService:
                     t.name as track_name,
                     t.track_id,
                     t.album_id,
-                    coalesce(ls.daily_play_count, 0) as play_count,
-                    coalesce(ls.stream_recorded_at, CURRENT_DATE) as stream_recorded_at,
+                    coalesce(ps.play_count, 0) as play_count,
+                    coalesce(ps.timestamp, CURRENT_TIMESTAMP) as stream_recorded_at,
                     coalesce(tc.pct_change, 0.0) as pct_change
                 from
                     tracks t
                 left join
-                    latest_streams ls on ls.track_id = t.track_id and ls.rn = 1
+                    period_streams ps on ps.track_id = t.track_id
                 left join
                     track_changes tc on tc.track_id = t.track_id
                 where
                     t.album_id = $1
                 order by
-                    t.track_id
+                    t.track_id, ps.timestamp desc
                 """,
                 album_id,
                 days,
