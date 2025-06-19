@@ -189,9 +189,14 @@ class DatabaseService:
             return [DatabaseAlbum(**dict(r)) for r in results]
 
     # 7. Fetch Album Data query
-    async def fetch_album_data(self, album_id: str) -> List[StreamResponse]:
-        """Fetch album data using the provided template"""
+    async def fetch_album_data(
+        self, album_id: str, time_period: str = "7d"
+    ) -> List[StreamResponse]:
+        """Fetch album data using the provided template with percentage change calculation"""
         async with get_db() as conn:
+            # Convert time_period to days as string for SQL
+            days = "7" if time_period == "7d" else "30"
+
             # First get the album data
             album_result = await conn.fetchrow(
                 """
@@ -211,25 +216,74 @@ class DatabaseService:
 
             album = DatabaseAlbum(**dict(album_result))
 
-            # Then get all tracks and their stream counts from the past week
+            # Get all tracks with their percentage changes over the specified period
             results = await conn.fetch(
                 """
-                SELECT
-                    t.track_id,
+                with latest_streams as (
+                    select
+                        album_id,
+                        track_id,
+                        timestamp::date as stream_recorded_at,
+                        max(play_count) as daily_play_count
+                    from
+                        streams
+                    where
+                        album_id = $1
+                        and timestamp between CURRENT_DATE - ($2 || ' days')::interval and CURRENT_DATE
+                        and play_count > 0
+                    group by
+                        album_id,
+                        track_id,
+                        stream_recorded_at
+                ), track_metrics as (
+                    select
+                        album_id,
+                        track_id,
+                        min(daily_play_count) as start_streams,
+                        max(daily_play_count) as end_streams,
+                        max(stream_recorded_at) as latest_date
+                    from
+                        latest_streams
+                    group by
+                        album_id,
+                        track_id
+                ), track_changes as (
+                    select
+                        album_id,
+                        track_id,
+                        end_streams as current_streams,
+                        latest_date,
+                        case
+                            when start_streams > 0 then
+                                ((end_streams::float / start_streams::float) - 1) * 100
+                            else 0
+                        end as pct_change
+                    from
+                        track_metrics
+                )
+                select
                     t.name as track_name,
+                    t.track_id,
                     t.album_id,
-                    s.play_count,
-                    s.timestamp
-                FROM tracks t
-                LEFT JOIN streams s ON s.track_id = t.track_id
-                WHERE t.album_id = $1
-                AND (s.timestamp IS NULL OR s.timestamp >= CURRENT_DATE - INTERVAL '7 days')
-                ORDER BY t.track_id, s.timestamp DESC
+                    coalesce(ls.daily_play_count, 0) as play_count,
+                    coalesce(ls.stream_recorded_at, CURRENT_DATE) as stream_recorded_at,
+                    coalesce(tc.pct_change, 0.0) as pct_change
+                from
+                    tracks t
+                left join
+                    latest_streams ls on ls.track_id = t.track_id
+                left join
+                    track_changes tc on tc.track_id = t.track_id
+                where
+                    t.album_id = $1
+                order by
+                    t.track_id, ls.stream_recorded_at asc
                 """,
                 album_id,
+                days,
             )
 
-            # Create StreamResponse objects for each stream record
+            # Create StreamResponse objects with percentage changes
             streams = []
             for r in results:
                 track = DatabaseTrack(
@@ -241,9 +295,17 @@ class DatabaseService:
                     track_id=r["track_id"],
                     album_id=r["album_id"],
                     play_count=r["play_count"] or 0,
-                    timestamp=r["timestamp"] or datetime.now(),
+                    timestamp=r["stream_recorded_at"] or datetime.now(),
                 )
-                streams.append(StreamResponse.from_database(stream, track, album))
+                streams.append(
+                    StreamResponse.from_database_with_pct_change(
+                        stream,
+                        track,
+                        album,
+                        pct_change=r["pct_change"] or 0.0,
+                        time_period=time_period,
+                    )
+                )
 
             return streams
 
@@ -319,11 +381,14 @@ class DatabaseService:
 
             return [dict(r) for r in results]
 
-    async def fetch_top_tracks(self) -> List[StreamResponse]:
+    async def fetch_top_tracks(self, time_period: str = "7d") -> List[StreamResponse]:
         async with get_db() as conn:
+            # Convert time_period to days as string for SQL
+            days = "7" if time_period == "7d" else "30"
+
             results = await conn.fetch(
                 """
-                with starting_streams as (
+                with latest_streams as (
                     select
                         album_id,
                         track_id,
@@ -332,59 +397,76 @@ class DatabaseService:
                     from
                         streams
                     where
-                        timestamp between CURRENT_DATE - interval '7 days' and CURRENT_DATE and
+                        timestamp between CURRENT_DATE - ($1 || ' days')::interval and CURRENT_DATE and
                         play_count > 0
                     group by
                         album_id,
                         track_id,
                         stream_recorded_at
-                ), enriched_streams as (
-                    select
-                        *,
-                        min(daily_play_count) over (partition by album_id, track_id) as start_streams,
-                        max(daily_play_count) over (partition by album_id, track_id) as end_streams
-                    from
-                        starting_streams
-                ), top_streams as (
+                ), track_metrics as (
                     select
                         album_id,
                         track_id,
-                        max(end_streams) / max(start_streams) - 1 as pct_change
+                        min(daily_play_count) as start_streams,
+                        max(daily_play_count) as end_streams,
+                        max(stream_recorded_at) as latest_date
                     from
-                        enriched_streams
+                        latest_streams
                     group by
                         album_id,
                         track_id
+                ), track_changes as (
+                    select
+                        album_id,
+                        track_id,
+                        end_streams as current_streams,
+                        latest_date,
+                        case
+                            when start_streams > 0 then
+                                ((end_streams::float / start_streams::float) - 1) * 100
+                            else 0
+                        end as pct_change
+                    from
+                        track_metrics
+                ), top_tracks as (
+                    select
+                        album_id,
+                        track_id,
+                        pct_change
+                    from
+                        track_changes
                     order by
                         pct_change desc
-                    limit
-                        5
+                    limit 5
                 )
                 select
                     t.name as track_name,
-                    ss.album_id,
-                    ss.track_id,
-                    ss.stream_recorded_at,
-                    ss.daily_play_count as play_count,
+                    ls.album_id,
+                    ls.track_id,
+                    ls.stream_recorded_at,
+                    ls.daily_play_count as play_count,
+                    tc.pct_change,
                     a.name as album_name,
                     a.cover_art,
                     a.release_date,
                     a.artist_name
                 from
-                    starting_streams ss
+                    latest_streams ls
+                join
+                    top_tracks tt on tt.track_id = ls.track_id
                 left join
-                    albums a
-                on
-                    a.album_id = ss.album_id
+                    track_changes tc on tc.track_id = ls.track_id
                 left join
-                    tracks t
-                on t.track_id = ss.track_id
-                where
-                    ss.track_id in (select track_id from top_streams);
-                """
+                    albums a on a.album_id = ls.album_id
+                left join
+                    tracks t on t.track_id = ls.track_id
+                order by
+                    tc.pct_change desc, ls.stream_recorded_at asc
+                """,
+                days,
             )
             return [
-                StreamResponse.from_database(
+                StreamResponse.from_database_with_pct_change(
                     DatabaseStream(
                         track_id=row["track_id"],
                         album_id=row["album_id"],
@@ -403,6 +485,8 @@ class DatabaseService:
                         cover_art=row["cover_art"],
                         release_date=row["release_date"],
                     ),
+                    pct_change=row["pct_change"] or 0.0,
+                    time_period=time_period,
                 )
                 for row in results
             ]

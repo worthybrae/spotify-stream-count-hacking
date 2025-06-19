@@ -1,0 +1,14 @@
+User-agent: *
+Allow: /
+
+# Sitemap
+Sitemap: https://streamclout.io/sitemap.xml
+
+# Crawl delay (optional, helps prevent overloading)
+Crawl-delay: 1
+
+# Block sensitive or unnecessary paths if any
+Disallow: /api/
+Disallow: /_next/
+Disallow: /admin/
+Disallow: /*.json$

@@ -18,15 +18,10 @@ interface ChartDataPoint {
 }
 
 // Define interface for stream history item
-interface StreamHistoryItem {
-  date: string;
-  streams: number;
-}
+
 
 // Extended track interface to include streamHistory
-interface TrackWithHistory extends Track {
-  streamHistory?: StreamHistoryItem[];
-}
+
 
 // Define interface for chart calculation result
 interface ChartCalculationResult {
@@ -43,93 +38,115 @@ const UpdatedMiniStreamChart: React.FC<MiniStreamChartProps> = ({
 }) => {
   // Process stream history data with strict date filtering
   const { chartData, canShowChart, growthPercentage, isSinglePoint } = useMemo<ChartCalculationResult>(() => {
-    // Check if track has streamHistory property
-    const trackWithHistory = track as TrackWithHistory;
-    const hasStreamHistory = 'streamHistory' in track &&
-                           Array.isArray(trackWithHistory.streamHistory) &&
-                           (trackWithHistory.streamHistory?.length ?? 0) > 0;
+    // Use backend-calculated percentage change if available
+    let growthPercentage = 0;
+    if (track.pct_change !== undefined) {
+      growthPercentage = track.pct_change;
+    }
 
-    if (!hasStreamHistory) {
+    // If no stream history, can't show chart
+    if (!track.streamHistory || track.streamHistory.length === 0) {
       return {
-        chartData: [] as ChartDataPoint[],
+        chartData: [],
         canShowChart: false,
-        growthPercentage: 0,
+        growthPercentage,
         isSinglePoint: false
       };
     }
 
-    // Get stream history and filter to last 7 days
-    const streamHistory = trackWithHistory.streamHistory ?? [];
-    const today = new Date();
-    const sevenDaysAgo = new Date(today);
-    sevenDaysAgo.setDate(today.getDate() - 7);
+    // Sort stream history by date
+    const sortedHistory = [...track.streamHistory].sort((a, b) =>
+      new Date(a.date).getTime() - new Date(b.date).getTime()
+    );
 
-    // First filter for valid data points, then for recent dates
-    const validData = streamHistory
-      .filter((item: StreamHistoryItem) => item && item.date && typeof item.streams !== 'undefined')
-      .filter((item: StreamHistoryItem) => {
-        const itemDate = new Date(item.date);
-        return itemDate >= sevenDaysAgo && itemDate <= today;
-      })
-      .sort((a: StreamHistoryItem, b: StreamHistoryItem) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    // Use all available data points instead of limiting to last 8
+    const recentHistory = sortedHistory;
 
-    // Generate chart data points from the filtered data
+    // Filter out any data points with invalid values
+    const validData = recentHistory.filter(item =>
+      item.streams !== null &&
+      item.streams !== undefined &&
+      item.streams >= 0 &&
+      item.date
+    );
+
+    // Need at least 1 point to show anything
+    if (validData.length === 0) {
+      return {
+        chartData: [],
+        canShowChart: false,
+        growthPercentage,
+        isSinglePoint: false
+      };
+    }
+
     const chartData: ChartDataPoint[] = [];
 
-    // If we have only one data point, create a single point chart data
+    // Special case: if we only have one data point
     if (validData.length === 1) {
-      const point = validData[0];
-      const displayDate = new Date(point.date).toLocaleDateString('en-US', {
+      const singlePoint = validData[0];
+      const displayDate = new Date(singlePoint.date).toLocaleDateString('en-US', {
         weekday: 'short'
       });
 
-      // For single points, we'll just display that single point
       chartData.push({
-        date: point.date,
+        date: singlePoint.date,
         displayDate,
-        dailyStreams: point.streams,
-        totalStreams: point.streams
+        dailyStreams: singlePoint.streams,
+        totalStreams: singlePoint.streams
       });
 
       return {
         chartData,
         canShowChart: true,
-        growthPercentage: 0,
+        growthPercentage,
         isSinglePoint: true
       };
     }
 
     // If we have multiple points, process them normally
-    // Calculate growth percentage
-    let growthPercentage = 0;
-    if (validData.length >= 2) {
+    // Calculate growth percentage only if backend didn't provide it
+    if (track.pct_change === undefined && validData.length >= 2) {
       const firstPoint = validData[0];
       const lastPoint = validData[validData.length - 1];
 
       if (firstPoint.streams > 0) {
         growthPercentage = ((lastPoint.streams - firstPoint.streams) / firstPoint.streams) * 100;
       }
+    }
 
-      // Start from index 1 to calculate differences between days
-      for (let i = 1; i < validData.length; i++) {
-        const currentDay = validData[i];
-        const previousDay = validData[i-1];
+    // Add the first data point (it has no previous day, so show total streams as dailyStreams)
+    const firstPoint = validData[0];
+    const firstDisplayDate = new Date(firstPoint.date).toLocaleDateString('en-US', {
+      weekday: 'short'
+    });
 
-        // Calculate daily new streams (difference between consecutive days)
-        const dailyStreams = Math.max(0, currentDay.streams - previousDay.streams);
+    chartData.push({
+      date: firstPoint.date,
+      displayDate: firstDisplayDate,
+      dailyStreams: firstPoint.streams, // For the first point, show total streams
+      totalStreams: firstPoint.streams
+    });
 
-        // Format display date as day of week (Mon, Tue, etc.)
-        const displayDate = new Date(currentDay.date).toLocaleDateString('en-US', {
-          weekday: 'short'
-        });
+    // Process remaining points starting from index 1 to calculate differences between days
+    for (let i = 1; i < validData.length; i++) {
+      const currentDay = validData[i];
+      const previousDay = validData[i-1];
 
-        chartData.push({
-          date: currentDay.date,
-          displayDate,
-          dailyStreams,
-          totalStreams: currentDay.streams
-        });
-      }
+      // Calculate daily new streams (difference between consecutive days)
+      const dailyStreams = Math.max(0, currentDay.streams - previousDay.streams);
+
+      // Format display date as day of week (Mon, Tue, etc.)
+      const displayDate = new Date(currentDay.date).toLocaleDateString('en-US', {
+        weekday: 'short'
+      });
+
+      chartData.push({
+        date: currentDay.date,
+        displayDate,
+        dailyStreams,
+        totalStreams: currentDay.streams
+      });
     }
 
     return {

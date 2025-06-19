@@ -35,6 +35,8 @@ export interface Track {
   isNew?: boolean;
   cover_art?: string;
   release_date?: string;
+  pct_change?: number;
+  time_period?: string;
 }
 
 export interface AlbumResponse {
@@ -169,6 +171,9 @@ export interface StreamResponse {
   artist_name: string;
   stream_count: number;
   timestamp: string;
+  cover_art?: string;
+  pct_change?: number;
+  time_period?: string;
 }
 
 export interface StreamHistoryItem {

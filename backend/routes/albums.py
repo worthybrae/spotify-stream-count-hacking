@@ -3,7 +3,7 @@ import logging
 from datetime import datetime
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from routes.dependencies import (
     get_database_service,
@@ -27,6 +27,8 @@ class StreamResponse(BaseModel):
     stream_count: int
     timestamp: str
     cover_art: Optional[str] = None
+    pct_change: float = 0.0
+    time_period: str = "7d"
 
     class Config:
         json_schema_extra = {
@@ -39,6 +41,8 @@ class StreamResponse(BaseModel):
                 "stream_count": 1234567,
                 "timestamp": "2024-03-21T12:00:00Z",
                 "cover_art": "https://i.scdn.co/image/ab67616d0000b273bb9d4e0f5c2d24d69a4ebd5e",
+                "pct_change": 15.5,
+                "time_period": "7d",
             }
         }
 
@@ -47,16 +51,32 @@ class StreamResponse(BaseModel):
     "/{album_id}",
     response_model=List[StreamResponse],
     summary="Get album streaming data",
+    description="""
+    Fetch album details and tracks with streaming data and percentage change over the selected time period.
+
+    - `album_id`: The Spotify album ID
+    - `time_period`: Time period for percentage change calculation ('7d' or '30d', default: '7d')
+
+    **Example:**
+    ```bash
+    curl -H \"X-API-Key: your_api_key\" \"http://localhost:8000/albums/6rqhFgbbKwnb9MLmUQDhG6?time_period=7d\"
+    ```
+    """,
 )
 async def fetch_album(
     album_id: str,
+    time_period: str = Query(
+        default="7d",
+        regex="^(7d|30d)$",
+        description="Time period for percentage change calculation (7d or 30d)",
+    ),
     spotify_services=Depends(get_spotify_services),
     db_service=Depends(get_database_service),
 ):
     """Fetch album details and tracks from database, then unofficial, then official Spotify API."""
     try:
         # 1. Try to get album data from the database
-        db_result = await db_service.fetch_album_data(album_id)
+        db_result = await db_service.fetch_album_data(album_id, time_period)
         if db_result:
             return db_result
 
@@ -76,6 +96,8 @@ async def fetch_album(
             if cover_art_url:
                 for stream in streams:
                     stream.cover_art = cover_art_url
+                    stream.pct_change = 0.0  # Will be calculated if saved to DB
+                    stream.time_period = time_period
             if streams:
                 await db_service.save_complete_album(streams)
                 return streams
@@ -101,6 +123,8 @@ async def fetch_album(
                     cover_art=album_details["images"][0]["url"]
                     if album_details["images"]
                     else None,
+                    pct_change=0.0,
+                    time_period=time_period,
                 )
             )
         await db_service.save_complete_album(streams)

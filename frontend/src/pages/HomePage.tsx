@@ -10,7 +10,8 @@ import { useEffect, useState } from 'react';
 import { GroupedTrack } from '@/types/api';
 import { processTrackData } from '@/lib/utils/dataProcessors';
 import { formatNumber } from '@/lib/utils/formatters';
-import { Play, TrendingUp } from 'lucide-react';
+import { Play, TrendingUp, BarChart3, Music, DollarSign } from 'lucide-react';
+import SEOHead from '@/components/seo/SEOHead';
 
 const HomePage = () => {
   const {
@@ -42,16 +43,21 @@ const HomePage = () => {
     window.dispatchEvent(event);
   };
 
-  // Calculate content height (viewport - header - footer)
-  const contentHeight = 'calc(100vh - 5.5rem)';
+
 
   // Trending songs state
   const [groupedTrendingTracks, setGroupedTrendingTracks] = useState<GroupedTrack[]>([]);
   const [trendingLoading, setTrendingLoading] = useState(true);
   const [trendingError, setTrendingError] = useState<string | null>(null);
 
-  // Helper to calculate 7d growth for a track
+  // Helper to get 7d growth for a track from backend data
   const getWeeklyGrowth = (track: GroupedTrack) => {
+    // Use backend-calculated percentage change if available
+    if (track.pct_change !== undefined) {
+      return track.pct_change;
+    }
+
+    // Fallback to frontend calculation if pct_change is not available
     const streamHistory = track.streamHistory || [];
     if (streamHistory.length >= 2) {
       const first = streamHistory[0].streams;
@@ -82,15 +88,23 @@ const HomePage = () => {
   }, []);
 
   const trendingTracksSection = (
-    <div className="flex flex-col gap-4">
+    <section className="flex flex-col gap-6" aria-labelledby="trending-title">
+      {/* Header with search and title */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 id="trending-title" className="text-2xl font-bold text-white">Trending Songs</h2>
+          <div className="text-xs text-white/40 font-medium">Updated daily</div>
+        </div>
+        <SearchSection onAlbumSelect={handleAlbumSelect} />
+      </div>
       {trendingLoading && (
-        <div className="text-white/70 text-center py-8">Loading trending songs...</div>
+        <div className="text-white/70 text-center py-8">Loading trending Spotify tracks...</div>
       )}
       {trendingError && (
         <div className="text-red-400 text-center py-8">{trendingError}</div>
       )}
       {!trendingLoading && !trendingError && groupedTrendingTracks.length === 0 && (
-        <div className="text-white/70 text-center py-8">No trending songs found.</div>
+        <div className="text-white/70 text-center py-8">No trending Spotify streaming data found.</div>
       )}
       {!trendingLoading && !trendingError && sortedTrendingTracks.slice(0, 5).map((track) => {
         // Calculate 7-day growth
@@ -125,12 +139,12 @@ const HomePage = () => {
               cover_art: track.cover_art || ''
             })}
           >
-            <div className="p-3 flex flex-row gap-4 items-center">
+            <article className="p-3 flex flex-row gap-4 items-center">
               {/* Album art (spans both rows) */}
               <div className="flex-none flex items-center">
                 <img
                   src={track.cover_art || ''}
-                  alt={track.album_name}
+                  alt={`${track.album_name} album cover`}
                   className="w-14 h-14 rounded-lg object-cover"
                 />
               </div>
@@ -165,11 +179,11 @@ const HomePage = () => {
                   </div>
                 </div>
               </div>
-            </div>
+            </article>
           </Card>
         );
       })}
-    </div>
+    </section>
   );
 
   if (selectedAlbum) {
@@ -189,36 +203,77 @@ const HomePage = () => {
   }
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center h-full">
-      {/* Left column - centered content */}
-      <div className="items-center h-full md:mb-0 flex flex-col justify-center">
-        <div className="hidden md:block md:mt-0 md:mb-0 text-center md:text-left">
-          <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold text-white mb-6">
-            Spotify Stream<br />Analytics
-          </h1>
-          <p className="text-sm md:text-lg text-white/70 mb-8 max-w-md">
-            Get real-time access to Spotify streaming analytics and track counts for any album.
-          </p>
-        </div>
-      </div>
+    <>
+      {/* SEO Head for home page */}
+      <SEOHead
+        title="StreamClout - Real-Time Spotify Streaming Data & Track Analytics"
+        description="Discover the most streamed songs on Spotify with real-time streaming data analytics. Get comprehensive Spotify track streams, stream counts, and performance insights for artists and albums."
+        keywords="spotify streaming data, spotify track streams, spotify stream count, most streamed song on spotify, streaming analytics, spotify charts, track performance, streaming insights"
+        canonicalUrl="https://streamclout.io/"
+        structuredData={{
+          "@context": "https://schema.org",
+          "@type": "WebApplication",
+          "name": "StreamClout",
+          "description": "Real-time Spotify streaming data analytics platform",
+          "applicationCategory": "MusicApplication",
+          "operatingSystem": "Web",
+          "offers": {
+            "@type": "Offer",
+            "price": "0",
+            "priceCurrency": "USD"
+          },
+          "featureList": [
+            "Real-time Spotify streaming data",
+            "Track stream count analytics",
+            "Artist performance metrics",
+            "Album streaming insights"
+          ]
+        }}
+      />
 
-      {/* Right column - search bar and features */}
-      <div className="h-full flex items-center">
-        <div className="w-full" style={{ maxHeight: contentHeight }}>
-          <Card className="p-6 bg-black/40 border-white/10 overflow-hidden">
-            {/* Search bar at the top */}
-            <div className="mb-6">
-              <SearchSection
-                onAlbumSelect={handleAlbumSelect}
-                renderTrendingTracks={trendingTracksSection}
-              />
+      <main className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center h-full" role="main">
+        {/* Left column - centered content */}
+        <section className="flex items-center justify-center h-full" aria-labelledby="main-heading">
+          <div className="text-center w-full">
+            <h1 id="main-heading" className="text-4xl md:text-6xl font-bold mb-4 bg-gradient-to-r from-white via-cyan-100 to-cyan-300 bg-clip-text text-transparent leading-tight">
+              Spotify Streaming Data
+            </h1>
+            <p className="hidden md:block text-xl text-white/80 mb-6 leading-relaxed">
+              Discover real-time <strong>Spotify streaming data</strong> and track performance insights.
+              Analyze <strong>Spotify track streams</strong>, view detailed <strong>stream counts</strong>,
+              and find the <strong>most streamed songs on Spotify</strong>.
+            </p>
+            <div className="hidden md:grid grid-cols-2 gap-4 text-sm text-white/60 mb-8 max-w-md mx-auto">
+              <div className="flex items-center gap-2 p-3 bg-white/5 rounded-xl border border-white/10">
+                <BarChart3 className="w-4 h-4 text-cyan-400" />
+                <span>Real-time Analytics</span>
+              </div>
+              <div className="flex items-center gap-2 p-3 bg-white/5 rounded-xl border border-white/10">
+                <Music className="w-4 h-4 text-purple-400" />
+                <span>Track Performance</span>
+              </div>
+              <div className="flex items-center gap-2 p-3 bg-white/5 rounded-xl border border-white/10">
+                <TrendingUp className="w-4 h-4 text-emerald-400" />
+                <span>Stream Growth</span>
+              </div>
+              <div className="flex items-center gap-2 p-3 bg-white/5 rounded-xl border border-white/10">
+                <DollarSign className="w-4 h-4 text-amber-400" />
+                <span>Revenue Insights</span>
+              </div>
             </div>
+          </div>
 
-            {/* Trending section now handled in SearchSection/SearchResults */}
-          </Card>
-        </div>
-      </div>
-    </div>
+
+        </section>
+
+        {/* Right column - trending songs */}
+        <section className="h-full flex flex-col justify-center">
+          <div className="px-2 pb-4">
+            {trendingTracksSection}
+          </div>
+        </section>
+      </main>
+    </>
   );
 };
 

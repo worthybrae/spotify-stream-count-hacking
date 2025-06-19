@@ -30,15 +30,19 @@ export const searchAlbums = async (
 
 /**
  * Fetch top tracks (trending songs)
+ * @param time_period - Time period for percentage change calculation ('7d' or '30d')
  * @returns List of top tracks
  */
-export const getTopTracks = async () => {
+export const getTopTracks = async (time_period: string = '7d') => {
   try {
     const apiKey = import.meta.env.VITE_API_KEY || localStorage.getItem('apiKey');
     const response = await api.get('/search/top-tracks', {
       headers: {
         'X-API-Key': apiKey,
       },
+      params: {
+        time_period
+      }
     });
     return response.data;
   } catch (error) {

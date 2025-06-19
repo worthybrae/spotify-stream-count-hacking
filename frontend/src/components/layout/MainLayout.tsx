@@ -35,7 +35,12 @@ const MainLayout = () => {
       <header className="fixed top-0 left-0 right-0 w-full backdrop-blur-sm z-50 bg-black/0">
         <div className="container mx-auto px-4">
           <div className="flex h-14 items-center justify-between">
-            <Link to="/" className="text-lg font-medium text-white">streamclout.io</Link>
+            <div className="flex items-center gap-3">
+              <Link to="/" className="text-lg font-medium text-white">streamclout.io</Link>
+              <div className="flex items-center gap-2 px-2 py-1 bg-orange-500/10 border border-orange-500/20 rounded-lg">
+                <span className="text-orange-300 text-xs font-medium">ALPHA</span>
+              </div>
+            </div>
 
             <div className="flex items-center gap-6">
               {/* Navigation Links */}

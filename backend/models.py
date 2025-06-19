@@ -44,6 +44,8 @@ class StreamResponse(BaseModel):
     timestamp: str
     cover_art: str
     release_date: datetime
+    pct_change: float = 0.0
+    time_period: str = "7d"
 
     @classmethod
     def from_database(
@@ -60,6 +62,32 @@ class StreamResponse(BaseModel):
             timestamp=stream.timestamp.strftime("%Y-%m-%dT%H:%M:%SZ"),
             cover_art=album.cover_art,
             release_date=album.release_date,
+            pct_change=0.0,
+            time_period="7d",
+        )
+
+    @classmethod
+    def from_database_with_pct_change(
+        cls,
+        stream: DatabaseStream,
+        track: DatabaseTrack,
+        album: DatabaseAlbum,
+        pct_change: float = 0.0,
+        time_period: str = "7d",
+    ) -> "StreamResponse":
+        """Create a StreamResponse from database models with percentage change"""
+        return cls(
+            track_id=stream.track_id,
+            track_name=track.track_name,
+            album_id=album.album_id,
+            album_name=album.name,
+            artist_name=album.artist_name,
+            stream_count=stream.play_count,
+            timestamp=stream.timestamp.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            cover_art=album.cover_art,
+            release_date=album.release_date,
+            pct_change=pct_change,
+            time_period=time_period,
         )
 
 

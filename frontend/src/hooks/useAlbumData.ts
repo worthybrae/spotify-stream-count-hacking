@@ -32,13 +32,13 @@ export const useAlbumData = () => {
     albumDetails: null
   });
 
-  const fetchAlbumData = useCallback(async (album: SearchResult) => {
+  const fetchAlbumData = useCallback(async (album: SearchResult, time_period: string = '7d') => {
     setAlbumData(prev => ({ ...prev, loading: true, error: null }));
     setSelectedAlbum(album);
 
     try {
       // Get all album data in a single call
-      const responseData = await getAlbumData(album.album_id);
+      const responseData = await getAlbumData(album.album_id, time_period);
       console.log('Album data loaded:', responseData);
 
       // Handle case where response is an array of tracks

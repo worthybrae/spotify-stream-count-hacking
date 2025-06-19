@@ -16,8 +16,8 @@ from routes.dependencies import (
 router = APIRouter(dependencies=[Depends(verify_api_key)])
 
 # Add a simple in-memory cache for top tracks
-_top_tracks_cache = None
-_top_tracks_cache_time = 0
+_top_tracks_cache = {}
+_top_tracks_cache_time = {}
 _TOP_TRACKS_CACHE_TTL = 60 * 60 * 24  # 24 hours in seconds
 
 
@@ -58,6 +58,14 @@ class TopTrackResponse(BaseModel):
     stream_count: int = Field(..., example=12345678)
     timestamp: str = Field(..., example="2024-03-21T12:00:00Z")
     release_date: str = Field(..., example="2023-10-27")
+    pct_change: float = Field(
+        ...,
+        example=15.5,
+        description="Percentage change in stream count over selected period",
+    )
+    time_period: str = Field(
+        ..., example="7d", description="Time period used for calculation (7d or 30d)"
+    )
 
 
 @router.get(
@@ -151,15 +159,22 @@ async def search_albums(
     response_model=List[TopTrackResponse],
     summary="Get top tracks",
     description="""
-    Get the top tracks by stream count. This endpoint returns the most streamed tracks in the database, including track and album details, artist, and the latest stream count.
+    Get the top tracks by stream count. This endpoint returns the most streamed tracks in the database, including track and album details, artist, and the percentage change over the selected time period.
+
+    - `time_period`: Time period for percentage change calculation ('7d' or '30d', default: '7d')
 
     **Example:**
     ```bash
-    curl -H \"X-API-Key: your_api_key\" \"http://localhost:8000/search/top-tracks\"
+    curl -H \"X-API-Key: your_api_key\" \"http://localhost:8000/search/top-tracks?time_period=7d\"
     ```
     """,
 )
 async def top_tracks(
+    time_period: str = Query(
+        default="7d",
+        regex="^(7d|30d)$",
+        description="Time period for percentage change calculation (7d or 30d)",
+    ),
     db_service=Depends(get_database_service),
     api_key=Depends(verify_api_key),
 ):
@@ -168,14 +183,19 @@ async def top_tracks(
     """
     global _top_tracks_cache, _top_tracks_cache_time
     now = time.time()
+
+    # Check cache for this specific time period
+    cache_key = time_period
     if (
-        _top_tracks_cache is not None
-        and (now - _top_tracks_cache_time) < _TOP_TRACKS_CACHE_TTL
+        cache_key in _top_tracks_cache
+        and cache_key in _top_tracks_cache_time
+        and (now - _top_tracks_cache_time[cache_key]) < _TOP_TRACKS_CACHE_TTL
     ):
-        return _top_tracks_cache
+        return _top_tracks_cache[cache_key]
+
     try:
         # First search in database
-        db_results = await db_service.fetch_top_tracks()
+        db_results = await db_service.fetch_top_tracks(time_period)
         # Add release_date to each result
         result = []
         for stream in db_results:
@@ -185,9 +205,14 @@ async def top_tracks(
                 d["release_date"] = d["release_date"].strftime("%Y-%m-%d")
             # Try to get release_date from stream if present, else empty string
             d["release_date"] = d.get("release_date", "") or ""
+            # Ensure pct_change is included and add time_period
+            d["pct_change"] = d.get("pct_change") or 0.0
+            d["time_period"] = time_period
             result.append(d)
-        _top_tracks_cache = result
-        _top_tracks_cache_time = now
+
+        # Cache the result for this time period
+        _top_tracks_cache[cache_key] = result
+        _top_tracks_cache_time[cache_key] = now
         return result
     except Exception as e:
         err_trace = traceback.format_exc()

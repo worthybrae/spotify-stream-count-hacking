@@ -33,6 +33,14 @@ const EnhancedTrackCard: React.FC<EnhancedTrackCardProps> = ({ track, onClick })
 
   // Filter and check for valid stream history data
   useEffect(() => {
+    // Use backend-calculated percentage change if available
+    if (track.pct_change !== undefined) {
+      setGrowth(track.pct_change);
+      setHasWeeklyData(track.pct_change !== 0); // Show data if there's any change
+      return;
+    }
+
+    // Fallback to frontend calculation if pct_change is not available
     // Check if track has stream history
     if (track.streamHistory && Array.isArray(track.streamHistory) && track.streamHistory.length > 0) {
       const history = track.streamHistory;
